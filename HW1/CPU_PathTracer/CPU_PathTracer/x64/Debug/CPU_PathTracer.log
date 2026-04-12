@@ -1,0 +1,4 @@
+﻿raytracer.obj : error LNK2019: unresolved external symbol __imp_FreeImage_Initialise referenced in function main
+FreeImage.lib : warning LNK4272: library machine type 'x86' conflicts with target machine type 'x64'
+..\..\..\..\Users\Z\Downloads\FreeImage.lib : warning LNK4272: library machine type 'x86' conflicts with target machine type 'x64'
+C:\dev\CSE168x\HW1\CPU_PathTracer\x64\Debug\CPU_PathTracer.exe : fatal error LNK1120: 1 unresolved externals
