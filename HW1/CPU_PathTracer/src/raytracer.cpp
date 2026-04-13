@@ -146,6 +146,8 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	glm::vec3 intersectionPoint(INFINITY, INFINITY, INFINITY);
 	bool hitObjectIsSphere = false;
 	float hitObjectIOR = 1.0f;
+	bool hitHasTexture = false;
+	texture* hitObjectTexture = NULL;
 
 	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
 
@@ -165,6 +167,8 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			hitObjectEmission = sphere->emission;
 			hitObjectShininess = sphere->shininess;
 			hitObjectIOR = sphere->ior;
+			hitHasTexture = sphere->matTexture != NULL;
+			hitObjectTexture = sphere->matTexture;
 		}
 	}
 
@@ -191,6 +195,9 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			minDist = tTriangle;
 			didHit = true;
 			hitTri = tri;
+			hitHasTexture = tri->matTexture != NULL;
+			hitObjectTexture = tri->matTexture;
+
 		}
 	}
 
@@ -211,7 +218,9 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 				hitObjectAmbient,
 				hitObjectNormal,
 				hitSphere->center,
-				hitObjectIOR);
+				hitObjectIOR,
+				hitHasTexture,
+				hitObjectTexture);
 		}
 		else
 		{
@@ -225,7 +234,9 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 				hitObjectAmbient,
 				hitObjectNormal,
 				glm::vec3(0, 0, 0),
-				hitObjectIOR);
+				hitObjectIOR,
+				hitHasTexture,
+				hitObjectTexture);
 		}
 	}
 
@@ -239,7 +250,9 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		hitObjectAmbient,
 		hitObjectNormal,
 		glm::vec3(0, 0, 0),
-		1.0f);
+		1.0f,
+		hitHasTexture,
+		NULL);
 }
 
 const int MAX_DEPTH = 3;
@@ -258,6 +271,11 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
 			// No attenuation for now
+
+			if (intersection->hitHasTexture)
+			{
+				intersection->hitObjectDiffuse = intersection->hitObjectTexture->value(0, 0, intersection->intersectionPoint);
+			}
 			glm::vec3 lambert = intersection->hitObjectDiffuse * dirLight->colour * std::max(nDotL, 0.0f);
 
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
@@ -310,6 +328,10 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			glm::vec3 normalizedLightDirection = glm::normalize(lightDir);
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
 			// No attenuation for now
+			if (intersection->hitHasTexture)
+			{
+				intersection->hitObjectDiffuse = intersection->hitObjectTexture->value(0, 0, intersection->intersectionPoint);
+			}
 			glm::vec3 lambert = intersection->hitObjectDiffuse * pointLight->colour * std::max(nDotL, 0.0f);
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
@@ -355,7 +377,6 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 			finalCol += lambert + phong;
 		}
-
 		return finalCol;
 	}
 	else
@@ -399,19 +420,21 @@ int main() {
 	//PointLight* pointLight = new PointLight(glm::vec3(5.0f, -5.0f, 10.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 	//scene->AddPointLight(pointLight);
 
-	// Fill light - softer light from left to reduce harsh shadows
-	PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, -3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
-	scene->AddPointLight(pointLight2);
+	//// Fill light - softer light from left to reduce harsh shadows
+	//PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, -3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
+	//scene->AddPointLight(pointLight2);
 
-	// Rim light - optional, adds definition from behind
-	PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-	scene->AddPointLight(pointLight3);
+	//// Rim light - optional, adds definition from behind
+	//PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+	//scene->AddPointLight(pointLight3);
 
 	// Directional light - simulates sun/general ambient direction
 	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));
 	scene->AddDirectionalLight(dirLight);
 	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.0f, -0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));
 	//scene->AddDirectionalLight(dirLight2);
+
+	auto checker = checker_texture(0.32f, glm::vec3(.2, .3, .1), glm::vec3(.9, .9, .9));
 
 	float triWidth = 100.0f;
 	float triHeight = 10.00f;
@@ -429,8 +452,8 @@ int main() {
 
 	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f), &checker);
+	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f), &checker);
 	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
@@ -459,6 +482,7 @@ int main() {
 	//// -Z
 	//scene->AddTriangle(tri8);
 	//scene->AddTriangle(tri9);
+	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
 
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)

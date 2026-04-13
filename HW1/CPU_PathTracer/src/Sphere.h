@@ -1,10 +1,11 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "Texture.h"
 
 class Sphere
 {
 public:
-	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior)
+	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior, texture* matTex = NULL)
 		:
 		center(center),
 		radius(radius),
@@ -13,7 +14,8 @@ public:
 		emission(emission),
 		shininess(shininess),
 		ambient(ambient),
-		ior(ior)
+		ior(ior),
+		matTexture(matTex)
 	{
 	}
 
@@ -36,4 +38,5 @@ public:
 	glm::vec3 diffuse, specular, emission, ambient;
 	float shininess;
 	float ior;
+	texture* matTexture;
 };

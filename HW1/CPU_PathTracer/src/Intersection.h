@@ -1,5 +1,6 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "Texture.h"
 
 class Intersection
 {
@@ -13,7 +14,9 @@ public:
 		glm::vec3 hitObjectAmbient,
 		glm::vec3 hitObjectNormal,
 		glm::vec3 center,
-		float hitObjectIOR
+		float hitObjectIOR,
+		bool hitHasTexture = false,
+		texture* hitObjectTexture = NULL
 	)
 		:
 		didHit(didHit),
@@ -25,7 +28,9 @@ public:
 		hitObjectAmbient(hitObjectAmbient),
 		hitObjectNormal(hitObjectNormal),
 		center(center),
-		hitObjectIOR(hitObjectIOR)
+		hitObjectIOR(hitObjectIOR),
+		hitHasTexture(hitHasTexture),
+		hitObjectTexture(hitObjectTexture)
 	{
 	}
 
@@ -49,4 +54,8 @@ public:
 	glm::vec3 center;
 	glm::vec3 reflectionNormal;
 	float hitObjectIOR = 1.0f;
+	float u;
+	float v;
+	bool hitHasTexture = false;
+	texture* hitObjectTexture = NULL;
 };

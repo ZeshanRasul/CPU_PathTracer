@@ -1,10 +1,11 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "Texture.h"
 
 class Triangle
 {
 public:
-	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient)
+	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, texture* matTex = NULL)
 		:
 		vertex0(vertex0),
 		vertex1(vertex1),
@@ -13,7 +14,8 @@ public:
 		specular(specular),
 		emission(emission),
 		shininess(shininess),
-		ambient(ambient)
+		ambient(ambient),
+		matTexture(matTex)
 
 	{
 		normalA = normalize(cross((vertex2 - vertex0), (vertex1 - vertex0)));
@@ -38,5 +40,5 @@ public:
 	glm::vec3 normal;
 	glm::vec3 diffuse, specular, emission, ambient;
 	float shininess;
-
+	texture* matTexture;
 };
