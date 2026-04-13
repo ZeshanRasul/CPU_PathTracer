@@ -4,6 +4,8 @@
 
 #include "Camera.h"
 #include "Ray.h"
+#include "Intersection.h"
+#include "Scene.h"
 
 const int IMAGE_WIDTH = 240;
 const int IMAGE_HEIGHT = 120;
@@ -15,21 +17,116 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 	a = cam.getEyePos() - cam.getCenter();
 	b = cam.getUp();
 
-	w = a / glm::normalize(a);
-	u = (glm::cross(b, w)) / (glm::normalize(glm::cross(b, w)));
+	w = glm::normalize(a);
+	u = (glm::normalize(glm::cross(b, w)));
 	v = glm::cross(w, u);
 
-	float fovX = 2 * atan((height * tan(cam.getFovY() / 2)) / width);
-	float alpha = (tan(cam.getFovY() / 2) * ((float(i) - (float(width) / 2)) / (float(width) / 2)));
-	float beta = tan(fovX / 2) * (((float(height) / 2) - float(j)) / (float(height) / 2));
+	float fovX = 2 * atan((height * tan(cam.getFovY() / 2.0f)) / width);
+	float alpha = (tan(cam.getFovY() / 2.0f) * ((float(i) - (float(width) / 2.0f)) / (float(width) / 2.0f)));
+	float beta = tan(fovX / 2.0f) * (((float(height) / 2.0f) - float(j)) / (float(height) / 2.0f));
 
-	glm::vec3 direction = normalize((alpha * u) + (beta * v) - w);
+	glm::vec3 direction = glm::normalize((alpha * u) + (beta * v) - w);
 	glm::vec3 origin = cam.getEyePos();
 	Ray ray(origin, direction);
 
 	return ray;
 
 }
+
+float CheckSphereIntersection(Sphere* sphere, Ray& ray)
+{
+	float a = glm::dot(ray.direction, ray.direction);
+	float b = 2 * (glm::dot(ray.direction, (ray.origin - sphere->center)));
+	float c = glm::dot((ray.origin - sphere->center), (ray.origin - sphere->center)) - (sphere->radius * sphere->radius);
+
+//	float discriminant = (b * b) - (4 * a * c);
+	float discriminant = (glm::dot(ray.direction, (ray.origin - sphere->center))) * (glm::dot(ray.direction, (ray.origin - sphere->center))) - ((glm::dot(ray.origin - sphere->center, ray.origin - sphere->center)) - (sphere->radius * sphere->radius));
+
+	int roots = 0;
+	bool pickPositiveRoot = false;
+	bool pickSmallerRoot = false;
+
+	if (discriminant > 0)
+	{
+		roots = 2;
+		pickSmallerRoot = true;
+	}
+	else if (discriminant < 0)
+	{
+		return INFINITY;
+	}
+	else if (discriminant == 0)
+	{
+		roots = 1;
+
+	}
+
+	float t1 = (-b + glm::sqrt(discriminant)) / (2 * a);
+	float t2 = (-b - glm::sqrt(discriminant)) / (2 * a);
+
+	if (t1 < 0 && t2 > 0)
+		return t2;
+
+	if (t2 < 0 && t1 > 0)
+		return t1;
+
+	if (pickSmallerRoot)
+		return t1 < t2 ? t1 : t2;
+
+	if (t2 > 0 && t1 > 0)
+		return t1 > t2 ? t1 : t2;
+
+	return INFINITY;
+}
+
+Intersection* FindIntersection(Scene* scene, Ray& ray)
+{
+	float minDist = INFINITY;
+	Sphere* hitSphere = NULL;
+	bool didHit = false;
+	float t = minDist;
+	float tSphere = minDist;
+	float tTriangle = minDist;
+	glm::vec3 hitObjectDiffuse = glm::vec3(0, 0, 0);
+	glm::vec3 hitObjectSpecular = glm::vec3(0, 0, 0);
+	glm::vec3 hitObjectEmission = glm::vec3(0, 0, 0);
+	glm::vec3 hitObjectAmbient = glm::vec3(0, 0, 0);
+	glm::vec3 hitObjectNormal = glm::vec3(0, 0, 0);
+	float hitObjectShininess = 0.0f;
+	glm::vec3 tBetaGamma2;
+	glm::vec3 intersectionPoint(INFINITY, INFINITY, INFINITY);
+	glm::vec3 center(0, 0, 0);
+	bool hitObjectIsSphere = false;
+	glm::vec3 reflectionNormal(0, 0, 0);
+
+	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
+
+	for (Sphere* sphere : sceneSpheres)
+	{
+		t = CheckSphereIntersection(sphere, ray);
+		if (t < minDist)
+		{
+			minDist = t;
+			didHit = true;
+			hitSphere = sphere;
+		}
+	}
+
+	if (didHit)
+	{
+		intersectionPoint = ray.origin + (glm::normalize(ray.direction) * tSphere);
+		glm::vec3 sphereNormal = ((intersectionPoint - hitSphere->center) / glm::normalize(intersectionPoint - hitSphere->center));
+		hitSphere->SetNormal(sphereNormal);
+		Intersection* intersection = new Intersection(didHit, intersectionPoint, hitSphere->diffuse, hitSphere->specular, hitSphere->emission, hitSphere->shininess, hitSphere->ambient, hitSphere->normal, hitSphere->center);
+		return intersection;
+	}
+	else
+	{
+		Intersection* intersection = new Intersection(false, intersectionPoint, hitObjectDiffuse, hitObjectSpecular, hitObjectEmission, hitObjectShininess, hitObjectAmbient, hitObjectNormal, glm::vec3(0, 0, 0));
+		return intersection;
+	}
+}
+
 
 int main()
 {
@@ -47,16 +144,39 @@ int main()
 	glm::vec3 center(0, 0, -1);
 	glm::vec3 up(0, 1, 0);
 
-	Camera cam(eyePos, center, up, 90.0f);
+	Camera cam(eyePos, center, up, glm::radians(45.0f));
+
+	Scene* scene = new Scene();
+	Sphere* sphere = new Sphere(glm::vec3(0, 0, -5), 0.15f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	scene->AddSphere(sphere);
+	
+	glm::vec4 col = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
 	{
 		for (int x = 0; x < IMAGE_WIDTH; x++)
 		{
+			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
+			Intersection* intersection = FindIntersection(scene, ray);
+			if (intersection->didHit)
+			{
+				col = glm::vec4(intersection->hitObjectDiffuse, 1.0f);
+			}
+			else
+			{
+				col = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
-			pixels[idx + 0] = 255;
-			pixels[idx + 1] = 255;
-			pixels[idx + 2] = 255;
+			/*pixels[idx + 0] = col.b * 255.0f;
+			pixels[idx + 1] = col.g * 255.0f;
+			pixels[idx + 2] = col.r * 255.0f;*/
+			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
+			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
+			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
+			//col[0] = BYTE(col[0] * 255.0f);
+			//col[1] = BYTE(col[1] * 255.0f);
+			//col[2] = BYTE(col[2] * 255.0f);
+			//memcpy(&pixels[((y * IMAGE_WIDTH) + x) * 3], &col, 3);
 		}
 
 	}

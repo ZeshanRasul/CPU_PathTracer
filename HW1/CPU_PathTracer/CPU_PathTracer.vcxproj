@@ -136,6 +136,8 @@
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Intersection.h" />
     <ClInclude Include="src\Ray.h" />
+    <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\Sphere.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
