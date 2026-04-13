@@ -143,22 +143,25 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	float hitObjectShininess = 0.0f;
 	glm::vec3 tBetaGamma2;
 	glm::vec3 intersectionPoint(INFINITY, INFINITY, INFINITY);
-	glm::vec3 center(0, 0, 0);
 	bool hitObjectIsSphere = false;
-	glm::vec3 reflectionNormal(0, 0, 0);
 
 	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
 
 	for (Sphere* sphere : sceneSpheres)
 	{
 		t = CheckSphereIntersection(sphere, ray);
-		if (t < minDist)
+		if (t < minDist && t > 0)
 		{
 			minDist = t;
 			didHit = true;
 			hitSphere = sphere;
 			tSphere = t;
 			hitObjectIsSphere = true;
+			hitObjectAmbient = sphere->ambient;
+			hitObjectDiffuse = sphere->diffuse;
+			hitObjectSpecular = sphere->specular;
+			hitObjectEmission = sphere->emission;
+			hitObjectShininess = sphere->shininess;
 		}
 	}
 
@@ -180,49 +183,66 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			hitObjectAmbient = tri->ambient;
 			hitObjectShininess = tri->shininess;
 			hitObjectIsSphere = false;
-
-
 			hitObjectNormal = glm::normalize((alpha2 * tri->normalA) + (beta2 * tri->normalB) + (gamma2 * tri->normalC));
-
 			intersectionPoint = ray.origin + ray.direction * tTriangle;
-
 			minDist = tTriangle;
 			didHit = true;
-			t = tTriangle;
 			hitTri = tri;
-
 		}
 	}
 
 	if (didHit)
 	{
-
 		if (hitObjectIsSphere)
 		{
-			intersectionPoint = ray.origin + (glm::normalize(ray.direction) * tSphere);
-			glm::vec3 sphereNormal = glm::normalize(intersectionPoint - hitSphere->center);
-			hitSphere->SetNormal(sphereNormal);
-			Intersection* intersection = new Intersection(didHit, intersectionPoint, hitSphere->diffuse, hitSphere->specular, hitSphere->emission, hitSphere->shininess, hitSphere->ambient, hitSphere->normal, hitSphere->center);
-			return intersection;
+			intersectionPoint = ray.origin + ray.direction * tSphere;
+			hitObjectNormal = glm::normalize(intersectionPoint - hitSphere->center);
+
+			return new Intersection(
+				true,
+				intersectionPoint,
+				hitObjectDiffuse,
+				hitObjectSpecular,
+				hitObjectEmission,
+				hitObjectShininess,
+				hitObjectAmbient,
+				hitObjectNormal,
+				hitSphere->center);
 		}
 		else
 		{
-			Intersection* intersection = new Intersection(didHit, intersectionPoint, hitObjectDiffuse, hitObjectSpecular, hitObjectEmission, hitObjectShininess, hitObjectAmbient, hitTri->normal, glm::vec3(0, 0, 0));
-			return intersection;
+			return new Intersection(
+				true,
+				intersectionPoint,
+				hitObjectDiffuse,
+				hitObjectSpecular,
+				hitObjectEmission,
+				hitObjectShininess,
+				hitObjectAmbient,
+				hitObjectNormal,
+				glm::vec3(0, 0, 0));
 		}
 	}
-	else
-	{
-		Intersection* intersection = new Intersection(false, intersectionPoint, hitObjectDiffuse, hitObjectSpecular, hitObjectEmission, hitObjectShininess, hitObjectAmbient, hitObjectNormal, glm::vec3(0, 0, 0));
-		return intersection;
-	}
+
+	return new Intersection(
+		false,
+		intersectionPoint,
+		hitObjectDiffuse,
+		hitObjectSpecular,
+		hitObjectEmission,
+		hitObjectShininess,
+		hitObjectAmbient,
+		hitObjectNormal,
+		glm::vec3(0, 0, 0));
 }
 
 glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 {
 	glm::vec3 finalCol = glm::vec3(0.0f);
+
 	if (intersection->didHit)
 	{
+		finalCol += intersection->hitObjectAmbient;
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
@@ -245,11 +265,12 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
 			if (shadowIntersection->didHit)
 			{
-				finalCol += intersection->hitObjectAmbient;
+			//	finalCol += intersection->hitObjectAmbient;
+				delete shadowIntersection;
 				continue;
 			}
 
-			finalCol += lambert + phong + intersection->hitObjectAmbient;
+			finalCol += lambert + phong;
 		}
 
 		std::vector<PointLight*> pointLights = scene->GetPointLights();
@@ -257,6 +278,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 		for (auto& pointLight : pointLights)
 		{
 			glm::vec3 lightDir = pointLight->position - intersection->intersectionPoint;
+			float distanceToLight = glm::length(lightDir);
 			glm::vec3 eyeDir = glm::normalize(camera->getEyePos() - intersection->intersectionPoint);
 			glm::vec3 normalizedLightDirection = glm::normalize(lightDir);
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
@@ -273,11 +295,16 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
 			if (shadowIntersection->didHit)
 			{
-				finalCol += intersection->hitObjectAmbient;
-				continue;
+				float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
+				if (distanceToOccluder < distanceToLight)
+				{
+					delete shadowIntersection;
+					continue;
+				}
+
 			}
 
-			finalCol += lambert + phong + intersection->hitObjectAmbient;
+			finalCol += lambert + phong;
 		}
 
 		return finalCol;
@@ -306,10 +333,10 @@ int main() {
 	Camera cam(eyePos, center, up, glm::radians(45.0f));
 
 	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(2.0, 0, -0), 1.3f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Sphere* sphere = new Sphere(glm::vec3(2.0, 0, -0), 10.0f, glm::vec3(1, 0, 0), glm::vec3(0.21, 0.21, 0.21), glm::vec3(0, 0, 0), 4.0f, glm::vec3(0.1f, 0.1f, 0.1f));
 	scene->AddSphere(sphere);
 
-	Sphere* sphere2 = new Sphere(glm::vec3(-7.0f, 1.0f, 0.0f), 2.5f, glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Sphere* sphere2 = new Sphere(glm::vec3(-27.0f, 1.0f, 0.0f), 5.0f, glm::vec3(0, 0, 1), glm::vec3(0.21, 0.21, 0.21), glm::vec3(0, 0, 0), 4.0f, glm::vec3(0.1f, 0.1f, 0.1f));
 	scene->AddSphere(sphere2);
 
 	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
@@ -319,8 +346,21 @@ int main() {
 	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
 	//scene->AddDirectionalLight(dirLight2);
 
-	PointLight* pointLight = new PointLight(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	scene->AddPointLight(pointLight);
+	//// Key light - main illumination from upper right
+	//PointLight* pointLight = new PointLight(glm::vec3(5.0f, 5.0f, 10.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	//scene->AddPointLight(pointLight);
+
+	//// Fill light - softer light from left to reduce harsh shadows
+	//PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, 3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
+	//scene->AddPointLight(pointLight2);
+
+	//// Rim light - optional, adds definition from behind
+	//PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, 2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+	//scene->AddPointLight(pointLight3);
+
+	// Directional light - simulates sun/general ambient direction
+	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 0.7f, 0.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+	scene->AddDirectionalLight(dirLight);
 
 	float triWidth = 100.0f;
 	float triHeight = 10.00f;
