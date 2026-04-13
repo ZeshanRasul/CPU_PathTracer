@@ -195,8 +195,6 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			minDist = tTriangle;
 			didHit = true;
 			hitTri = tri;
-			hitHasTexture = tri->matTexture != NULL;
-			hitObjectTexture = tri->matTexture;
 
 		}
 	}
@@ -236,7 +234,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 				glm::vec3(0, 0, 0),
 				hitObjectIOR,
 				hitHasTexture,
-				hitObjectTexture);
+				NULL);
 		}
 	}
 
@@ -396,7 +394,7 @@ int main() {
 	}
 	memset(pixels, 0, sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-	glm::vec3 eyePos(0, 0, 75);
+	glm::vec3 eyePos(0, 0, 175);
 	glm::vec3 center(0, 0, -1);
 	glm::vec3 up(0, 1, 0);
 
@@ -436,9 +434,10 @@ int main() {
 
 	auto checker = checker_texture(0.32f, glm::vec3(.2, .3, .1), glm::vec3(.9, .9, .9));
 
-	float triWidth = 100.0f;
-	float triHeight = 10.00f;
-	float triDepth = 200.0f;
+
+	float triWidth = 50.0f;
+	float triHeight = 50.00f;
+	float triDepth = 50.0f;
 	float triCenter = 0.00f;
 
 	glm::vec3 vert0(-triWidth, -triHeight, -triDepth);
@@ -452,8 +451,8 @@ int main() {
 
 	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f), &checker);
-	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f), &checker);
+	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
@@ -468,20 +467,20 @@ int main() {
 	//scene->AddTriangle(tri0);
 	//scene->AddTriangle(tri1);
 
-	// +Y
+//	 +Y
 	scene->AddTriangle(tri2);
 	scene->AddTriangle(tri3);
 
-	//// +X
-	//scene->AddTriangle(tri4);
-	//scene->AddTriangle(tri5);
+	// +X
+	scene->AddTriangle(tri4);
+	scene->AddTriangle(tri5);
 
-	//// -X
-	//scene->AddTriangle(tri6);
-	//scene->AddTriangle(tri7);
-	//// -Z
-	//scene->AddTriangle(tri8);
-	//scene->AddTriangle(tri9);
+	// -X
+	scene->AddTriangle(tri6);
+	scene->AddTriangle(tri7);
+	// -Z
+	scene->AddTriangle(tri8);
+	scene->AddTriangle(tri9);
 	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
 
 

@@ -146,9 +146,6 @@
   <ItemGroup>
     <None Include=".gitignore" />
   </ItemGroup>
-  <ItemGroup>
-    <Image Include="outfile.png" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
