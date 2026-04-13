@@ -128,19 +128,26 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	}
 }
 
-glm::vec3 FindColor(Intersection* intersection, Scene* scene)
+glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 {
 	if (intersection->didHit)
 	{
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
+			glm::vec3 eyeDir = glm::normalize(camera->getEyePos() - intersection->intersectionPoint);
 			glm::vec3 normalizedLightDirection = glm::normalize(-dirLight->direction);
 
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
 			// No attenuation for now
 			glm::vec3 lambert = intersection->hitObjectDiffuse * dirLight->colour * std::max(nDotL, 0.0f);
-			return lambert + intersection->hitObjectAmbient;
+
+			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
+			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
+			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
+
+
+			return lambert + phong + intersection->hitObjectAmbient;
 		}
 	}
 	else
@@ -176,7 +183,7 @@ int main()
 
 	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
 
-	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.1f, 1.0f, 0.1f), glm::vec3(1.0f, 1.0f, 1.0f));
+	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.1f, 1.0f, -0.3f), glm::vec3(1.0f, 1.0f, 1.0f));
 	scene->AddDirectionalLight(dirLight);
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
@@ -185,7 +192,7 @@ int main()
 		{
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
 			Intersection* intersection = FindIntersection(scene, ray);
-			col = FindColor(intersection, scene);
+			col = FindColor(intersection, scene, &cam);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
