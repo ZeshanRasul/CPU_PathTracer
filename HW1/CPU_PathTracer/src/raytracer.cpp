@@ -238,6 +238,17 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
 
+			// Shadow Ray
+			glm::vec3 dir = normalizedLightDirection;
+			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			Ray shadowRay(origin, dir);
+			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
+			if (shadowIntersection->didHit)
+			{
+				finalCol += intersection->hitObjectAmbient;
+				continue;
+			}
+
 			finalCol += lambert + phong + intersection->hitObjectAmbient;
 		}
 
@@ -268,22 +279,22 @@ int main()
 	Camera cam(eyePos, center, up, glm::radians(45.0f));
 
 	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(2.0, 0, -15), 5.0f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	Sphere* sphere = new Sphere(glm::vec3(2.0, 0, -0), 1.3f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.3f, 0.3f, 0.3f));
 	scene->AddSphere(sphere);
 
-	Sphere* sphere2 = new Sphere(glm::vec3(-7.0f, 1.0f, -15.0f), 2.5f, glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	Sphere* sphere2 = new Sphere(glm::vec3(-7.0f, 1.0f, 0.0f), 2.5f, glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.3f, 0.3f, 0.3f));
 	scene->AddSphere(sphere2);
 
 	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
 
-	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.1f, 1.0f, -0.3f), glm::vec3(1.0f, 1.0f, 1.0f));
+	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 	scene->AddDirectionalLight(dirLight);
-	DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
-	scene->AddDirectionalLight(dirLight2);
+	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
+	//scene->AddDirectionalLight(dirLight2);
 
-	float triWidth = 10.0f;
+	float triWidth = 100.0f;
 	float triHeight = 10.00f;
-	float triDepth = 20.0f;
+	float triDepth = 200.0f;
 	float triCenter = 0.00f;
 
 	glm::vec3 vert0(-triWidth, -triHeight, -triDepth);
@@ -295,53 +306,38 @@ int main()
 	glm::vec3 vert6(+triWidth, +triHeight, +triDepth);
 	glm::vec3 vert7(+triWidth, -triHeight, +triDepth);
 
-	/*
-	Triangle tri0(vert0, vert4, vert7, vec3(1.0f, 0.0f, 0.0f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1, 0.1, 0.1));
-	Triangle tri1(vert0, vert7, vert3, vec3(1.0f, 0.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri2(vert1, vert5, vert6, vec3(0.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(1.0f, 1.00f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri3(vert1, vert6, vert2, vec3(0.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(1.00f, 1.00f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri4(vert3, vert2, vert6, vec3(0.0f, 0.0f, 1.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri5(vert3, vert6, vert7, vec3(0.0f, 0.0f, 1.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri6(vert0, vert5, vert1, vec3(1.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(0.00f, 1.00f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri7(vert0, vert4, vert5, vec3(1.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(0.00f, 1.00f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri8(vert0, vert1, vert2, vec3(0.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri9(vert0, vert2, vert3, vec3(0.0f, 1.0f, 0.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri10(vert4, vert7, vert6, vec3(0.0f, 1.0f, 1.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	Triangle tri11(vert4, vert6, vert5, vec3(0.0f, 1.0f, 1.f), vec3(1.00, 1.00, 1.00f), vec3(0.15f, 0.05f, 0.0f), 1.00f, vec3(0.1f, 0.1f, 0.1f));
-	*/
-
-	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1, 0.1, 0.1));
-	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri7 = new Triangle(vert0, vert4, vert5, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri8 = new Triangle(vert0, vert1, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri9 = new Triangle(vert0, vert2, vert3, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
-	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.1f, 0.1f, 0.1f));
+	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri7 = new Triangle(vert0, vert4, vert5, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri8 = new Triangle(vert0, vert1, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri9 = new Triangle(vert0, vert2, vert3, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 
 
-	// -Y
-	scene->AddTriangle(tri0);
-	scene->AddTriangle(tri1);
+	//// -Y
+	//scene->AddTriangle(tri0);
+	//scene->AddTriangle(tri1);
 
 	// +Y
 	scene->AddTriangle(tri2);
 	scene->AddTriangle(tri3);
 
-	// +X
-	scene->AddTriangle(tri4);
-	scene->AddTriangle(tri5);
+	//// +X
+	//scene->AddTriangle(tri4);
+	//scene->AddTriangle(tri5);
 
-	// -X
-	scene->AddTriangle(tri6);
-	scene->AddTriangle(tri7);
-	// -Z
-	scene->AddTriangle(tri8);
-	scene->AddTriangle(tri9);
+	//// -X
+	//scene->AddTriangle(tri6);
+	//scene->AddTriangle(tri7);
+	//// -Z
+	//scene->AddTriangle(tri8);
+	//scene->AddTriangle(tri9);
 
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
