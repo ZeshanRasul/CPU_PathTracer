@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "Sphere.h"
+#include "DirectionalLight.h"
 
 class Scene {
 public:
@@ -15,6 +16,17 @@ public:
 		return spheres;
 	}
 
+	void AddDirectionalLight(DirectionalLight* dirLight)
+	{
+		dirLights.push_back(dirLight);
+	}
+
+	std::vector<DirectionalLight*> GetDirLights()
+	{
+		return dirLights;
+	}
+
 private:
 	std::vector<Sphere*> spheres;
+	std::vector<DirectionalLight*> dirLights;
 };

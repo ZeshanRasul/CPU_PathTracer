@@ -109,13 +109,14 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			minDist = t;
 			didHit = true;
 			hitSphere = sphere;
+			tSphere = t;
 		}
 	}
 
 	if (didHit)
 	{
 		intersectionPoint = ray.origin + (glm::normalize(ray.direction) * tSphere);
-		glm::vec3 sphereNormal = ((intersectionPoint - hitSphere->center) / glm::normalize(intersectionPoint - hitSphere->center));
+		glm::vec3 sphereNormal = glm::normalize(intersectionPoint - hitSphere->center);
 		hitSphere->SetNormal(sphereNormal);
 		Intersection* intersection = new Intersection(didHit, intersectionPoint, hitSphere->diffuse, hitSphere->specular, hitSphere->emission, hitSphere->shininess, hitSphere->ambient, hitSphere->normal, hitSphere->center);
 		return intersection;
@@ -127,6 +128,26 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	}
 }
 
+glm::vec3 FindColor(Intersection* intersection, Scene* scene)
+{
+	if (intersection->didHit)
+	{
+		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
+		for (auto& dirLight : dirLights)
+		{
+			glm::vec3 normalizedLightDirection = glm::normalize(-dirLight->direction);
+
+			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
+			// No attenuation for now
+			glm::vec3 lambert = intersection->hitObjectDiffuse * dirLight->colour * std::max(nDotL, 0.0f);
+			return lambert + intersection->hitObjectAmbient;
+		}
+	}
+	else
+	{
+		return glm::vec3(1.0f, 0.0f, 1.0f);
+	}
+}
 
 int main()
 {
@@ -147,10 +168,16 @@ int main()
 	Camera cam(eyePos, center, up, glm::radians(45.0f));
 
 	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(0, 0, -5), 0.15f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	Sphere* sphere = new Sphere(glm::vec3(0, 0, -15), 1.0f, glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
 	scene->AddSphere(sphere);
 	
-	glm::vec4 col = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+	Sphere* sphere2 = new Sphere(glm::vec3(-3.0f, 1.0f, -15.0f), 0.5f, glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	scene->AddSphere(sphere2);
+
+	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
+
+	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.1f, 1.0f, 0.1f), glm::vec3(1.0f, 1.0f, 1.0f));
+	scene->AddDirectionalLight(dirLight);
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
 	{
@@ -158,25 +185,11 @@ int main()
 		{
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
 			Intersection* intersection = FindIntersection(scene, ray);
-			if (intersection->didHit)
-			{
-				col = glm::vec4(intersection->hitObjectDiffuse, 1.0f);
-			}
-			else
-			{
-				col = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
-			}
+			col = FindColor(intersection, scene);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
-			/*pixels[idx + 0] = col.b * 255.0f;
-			pixels[idx + 1] = col.g * 255.0f;
-			pixels[idx + 2] = col.r * 255.0f;*/
 			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
-			//col[0] = BYTE(col[0] * 255.0f);
-			//col[1] = BYTE(col[1] * 255.0f);
-			//col[2] = BYTE(col[2] * 255.0f);
-			//memcpy(&pixels[((y * IMAGE_WIDTH) + x) * 3], &col, 3);
 		}
 
 	}
