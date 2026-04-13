@@ -236,6 +236,8 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		glm::vec3(0, 0, 0));
 }
 
+const int MAX_DEPTH = 3;
+int bounces = 0;
 glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 {
 	glm::vec3 finalCol = glm::vec3(0.0f);
@@ -257,7 +259,19 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
-
+			for (int i = 0; i < MAX_DEPTH; i++)
+			{
+				bounces++;
+				if (bounces >= MAX_DEPTH)
+				{
+					break;
+				}
+				glm::vec3 reflectDir = glm::reflect(-normalizedLightDirection, intersection->hitObjectNormal);
+				glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+				Ray mirrorRay(origin, reflectDir);
+				Intersection* mirrorIntersection = FindIntersection(scene, mirrorRay);
+				finalCol += FindColor(mirrorIntersection, scene, camera) * intersection->hitObjectSpecular;
+			}
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
@@ -265,7 +279,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
 			if (shadowIntersection->didHit)
 			{
-			//	finalCol += intersection->hitObjectAmbient;
+				//	finalCol += intersection->hitObjectAmbient;
 				delete shadowIntersection;
 				continue;
 			}
@@ -288,6 +302,18 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
+			for (int i = 0; i < MAX_DEPTH; i++)
+			{
+				if (bounces >= MAX_DEPTH)
+				{
+					break;
+				}
+				glm::vec3 reflectDir = glm::reflect(-normalizedLightDirection, intersection->hitObjectNormal);
+				glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+				Ray mirrorRay(origin, reflectDir);
+				Intersection* mirrorIntersection = FindIntersection(scene, mirrorRay);
+				finalCol += FindColor(mirrorIntersection, scene, camera) * intersection->hitObjectSpecular;
+			}
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
@@ -376,18 +402,18 @@ int main() {
 	glm::vec3 vert6(+triWidth, +triHeight, +triDepth);
 	glm::vec3 vert7(+triWidth, -triHeight, +triDepth);
 
-	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri7 = new Triangle(vert0, vert4, vert5, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri8 = new Triangle(vert0, vert1, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri9 = new Triangle(vert0, vert2, vert3, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.00, 0.00, 0.00f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri7 = new Triangle(vert0, vert4, vert5, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri8 = new Triangle(vert0, vert1, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri9 = new Triangle(vert0, vert2, vert3, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
+	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 
 
 	//// -Y
@@ -415,6 +441,7 @@ int main() {
 		for (int x = 0; x < IMAGE_WIDTH; x++)
 		{
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
+			bounces = 0;
 			Intersection* intersection = FindIntersection(scene, ray);
 			col = FindColor(intersection, scene, &cam);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
