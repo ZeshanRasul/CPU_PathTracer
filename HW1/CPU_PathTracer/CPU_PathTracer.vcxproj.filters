@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="raytracer.cpp">
+    <ClCompile Include="src\raytracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -23,11 +23,17 @@
     <ClInclude Include="include\FreeImage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Intersection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\..\..\..\Users\Z\Downloads\FreeImage.lib" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\..\..\Users\Z\Downloads\FreeImage.dll" />
+    <None Include=".gitignore" />
   </ItemGroup>
 </Project>

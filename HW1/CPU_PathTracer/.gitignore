@@ -1,1 +1,5 @@
 .vs
+x64
+*\Debug\*
+HW1/CPU_PathTracer/Debug/*
+HW1/CPU_PathTracer/CPU_PathTracer/Debug/*

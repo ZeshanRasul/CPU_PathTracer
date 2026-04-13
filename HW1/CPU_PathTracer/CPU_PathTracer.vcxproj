@@ -76,6 +76,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>include;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -91,6 +92,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>include;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,16 +129,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="raytracer.cpp" />
+    <ClCompile Include="src\raytracer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\FreeImage.h" />
+    <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Intersection.h" />
+    <ClInclude Include="src\Ray.h" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\..\..\..\Users\Z\Downloads\FreeImage.lib" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\..\..\Users\Z\Downloads\FreeImage.dll" />
+    <None Include=".gitignore" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
