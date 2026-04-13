@@ -7,8 +7,8 @@
 #include "Intersection.h"
 #include "Scene.h"
 
-const int IMAGE_WIDTH = 240;
-const int IMAGE_HEIGHT = 120;
+const int IMAGE_WIDTH = 1920;
+const int IMAGE_HEIGHT = 1080;
 
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
@@ -244,7 +244,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 	if (intersection->didHit)
 	{
-		finalCol += intersection->hitObjectAmbient;
+	//	finalCol += intersection->hitObjectAmbient;
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
@@ -337,7 +337,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 	}
 	else
 	{
-		return finalCol = glm::vec3(1.0f, 0.0f, 1.0f);
+		return finalCol = glm::vec3(0.0f, 0.0f, 1.0f);
 	}
 }
 
@@ -359,7 +359,7 @@ int main() {
 	Camera cam(eyePos, center, up, glm::radians(45.0f));
 
 	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(0.21, 0.21, 0.21), glm::vec3(0, 0, 0), 4.0f, glm::vec3(0.1f, 0.1f, 0.1f));
+	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0, 0, 0), 4.0f, glm::vec3(0.1f, 0.1f, 0.1f));
 	scene->AddSphere(sphere);
 
 	Sphere* sphere2 = new Sphere(glm::vec3(-20.0f, -10.0f, 0.0f), 3.0f, glm::vec3(0, 0, 1), glm::vec3(0.21, 0.21, 0.21), glm::vec3(0, 0, 0), 4.0f, glm::vec3(0.1f, 0.1f, 0.1f));
@@ -372,17 +372,17 @@ int main() {
 	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
 	//scene->AddDirectionalLight(dirLight2);
 
-	// Key light - main illumination from upper right
-	PointLight* pointLight = new PointLight(glm::vec3(5.0f, -5.0f, 10.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	scene->AddPointLight(pointLight);
+	//// Key light - main illumination from upper right
+	//PointLight* pointLight = new PointLight(glm::vec3(5.0f, -5.0f, 10.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	//scene->AddPointLight(pointLight);
 
-	// Fill light - softer light from left to reduce harsh shadows
-	PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, -3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
-	scene->AddPointLight(pointLight2);
+	//// Fill light - softer light from left to reduce harsh shadows
+	//PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, -3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
+	//scene->AddPointLight(pointLight2);
 
-	// Rim light - optional, adds definition from behind
-	PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-	scene->AddPointLight(pointLight3);
+	//// Rim light - optional, adds definition from behind
+	//PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+	//scene->AddPointLight(pointLight3);
 
 	// Directional light - simulates sun/general ambient direction
 	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));

@@ -3,3 +3,6 @@ x64
 *\Debug\*
 HW1/CPU_PathTracer/Debug/*
 HW1/CPU_PathTracer/CPU_PathTracer/Debug/*
+*\Release\*
+HW1/CPU_PathTracer/Release/*
+HW1/CPU_PathTracer/CPU_PathTracer/Release/*
