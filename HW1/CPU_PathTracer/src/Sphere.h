@@ -4,7 +4,7 @@
 class Sphere
 {
 public:
-	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient)
+	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior)
 		:
 		center(center),
 		radius(radius),
@@ -12,7 +12,8 @@ public:
 		specular(specular),
 		emission(emission),
 		shininess(shininess),
-		ambient(ambient)
+		ambient(ambient),
+		ior(ior)
 	{
 	}
 
@@ -34,4 +35,5 @@ public:
 	glm::vec3 normal;
 	glm::vec3 diffuse, specular, emission, ambient;
 	float shininess;
+	float ior;
 };

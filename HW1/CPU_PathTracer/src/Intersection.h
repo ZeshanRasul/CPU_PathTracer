@@ -12,7 +12,8 @@ public:
 		float hitObjectShininess,
 		glm::vec3 hitObjectAmbient,
 		glm::vec3 hitObjectNormal,
-		glm::vec3 center
+		glm::vec3 center,
+		float hitObjectIOR
 	)
 		:
 		didHit(didHit),
@@ -23,7 +24,8 @@ public:
 		hitObjectShininess(hitObjectShininess),
 		hitObjectAmbient(hitObjectAmbient),
 		hitObjectNormal(hitObjectNormal),
-		center(center)
+		center(center),
+		hitObjectIOR(hitObjectIOR)
 	{
 	}
 
@@ -46,4 +48,5 @@ public:
 	bool hitObjectIsSphere;
 	glm::vec3 center;
 	glm::vec3 reflectionNormal;
+	float hitObjectIOR = 1.0f;
 };
