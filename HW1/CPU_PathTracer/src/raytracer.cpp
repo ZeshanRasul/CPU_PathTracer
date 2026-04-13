@@ -252,16 +252,43 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			finalCol += lambert + phong + intersection->hitObjectAmbient;
 		}
 
+		std::vector<PointLight*> pointLights = scene->GetPointLights();
+
+		for (auto& pointLight : pointLights)
+		{
+			glm::vec3 lightDir = pointLight->position - intersection->intersectionPoint;
+			glm::vec3 eyeDir = glm::normalize(camera->getEyePos() - intersection->intersectionPoint);
+			glm::vec3 normalizedLightDirection = glm::normalize(lightDir);
+			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
+			// No attenuation for now
+			glm::vec3 lambert = intersection->hitObjectDiffuse * pointLight->colour * std::max(nDotL, 0.0f);
+			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
+			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
+			glm::vec3 phong = intersection->hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
+
+			// Shadow Ray
+			glm::vec3 dir = normalizedLightDirection;
+			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			Ray shadowRay(origin, dir);
+			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
+			if (shadowIntersection->didHit)
+			{
+				finalCol += intersection->hitObjectAmbient;
+				continue;
+			}
+
+			finalCol += lambert + phong + intersection->hitObjectAmbient;
+		}
+
 		return finalCol;
 	}
 	else
 	{
-		return glm::vec3(1.0f, 0.0f, 1.0f);
+		return finalCol = glm::vec3(1.0f, 0.0f, 1.0f);
 	}
 }
 
-int main()
-{
+int main() {
 	std::string fname = "outfile.png";
 	FreeImage_Initialise();
 
@@ -287,10 +314,13 @@ int main()
 
 	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
 
-	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	scene->AddDirectionalLight(dirLight);
+	//DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	//scene->AddDirectionalLight(dirLight);
 	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
 	//scene->AddDirectionalLight(dirLight2);
+
+	PointLight* pointLight = new PointLight(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	scene->AddPointLight(pointLight);
 
 	float triWidth = 100.0f;
 	float triHeight = 10.00f;

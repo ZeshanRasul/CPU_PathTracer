@@ -136,6 +136,7 @@
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\DirectionalLight.h" />
     <ClInclude Include="src\Intersection.h" />
+    <ClInclude Include="src\PointLight.h" />
     <ClInclude Include="src\Ray.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Sphere.h" />

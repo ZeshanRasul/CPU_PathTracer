@@ -4,6 +4,7 @@
 #include "Sphere.h"
 #include "Triangle.h"
 #include "DirectionalLight.h"
+#include "PointLight.h"
 
 class Scene {
 public:
@@ -37,8 +38,19 @@ public:
 		return dirLights;
 	}
 
+	void AddPointLight(PointLight* pointLight)
+	{
+		pointLights.push_back(pointLight);
+	}
+
+	std::vector<PointLight*> GetPointLights()
+	{
+		return pointLights;
+	}
+
 private:
 	std::vector<Sphere*> spheres;
 	std::vector<Triangle*> triangles;
 	std::vector<DirectionalLight*> dirLights;
+	std::vector<PointLight*> pointLights;
 };
