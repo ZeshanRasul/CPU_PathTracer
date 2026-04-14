@@ -5,7 +5,7 @@
 class Sphere
 {
 public:
-	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior, texture* matTex = NULL)
+	Sphere(glm::vec3 center, glm::vec3 radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior, texture* matTex = NULL)
 		:
 		center(center),
 		radius(radius),
@@ -33,7 +33,7 @@ public:
 	}
 
 	glm::vec3 center;
-	float radius;
+	glm::vec3 radius;
 	glm::vec3 normal;
 	glm::vec3 diffuse, specular, emission, ambient;
 	float shininess;
