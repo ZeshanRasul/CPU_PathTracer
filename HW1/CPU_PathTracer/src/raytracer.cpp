@@ -458,10 +458,31 @@ int main() {
 	eyePos[0] = eyex;
 	eyePos[1] = eyey;
 	eyePos[2] = eyez;
-	glm::vec3 center(0, 0, -1);
-	glm::vec3 up(0, 1, 0);
 
-	Camera cam(eyePos, center, up, glm::radians(45.0f));
+	char centerx[4];
+	inFile.getline(centerx, 4, ' ');
+
+	char centery[4];
+	inFile.getline(centery, 4, ' ');
+
+	char centerz[4];
+	inFile.getline(centerz, 4, ' ');
+
+	glm::vec3 center(std::stoi(centerx, 0, 10), std::stoi(centery, 0, 10), std::stoi(centerz, 0, 10));
+
+	char upx[4];
+	inFile.getline(upx, 4, ' ');
+
+	char upy[4];
+	inFile.getline(upy, 4, ' ');
+
+	char upz[4];
+	inFile.getline(upz, 4, ' ');
+	glm::vec3 up(std::stoi(upx, 0, 10), std::stoi(upy, 0, 10), std::stoi(upz, 0, 10));
+
+	char fovY[4];
+	inFile.getline(fovY, 4, ' ');
+	Camera cam(eyePos, center, up, glm::radians(std::stof(fovY)));
 
 	Scene* scene = new Scene();
 	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f), 1.5f);
@@ -548,7 +569,7 @@ int main() {
 	//// -Z
 	//scene->AddTriangle(tri8);
 	//scene->AddTriangle(tri9);
-	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
+//	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
 
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
