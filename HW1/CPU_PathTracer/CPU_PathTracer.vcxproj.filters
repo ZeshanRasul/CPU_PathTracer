@@ -57,4 +57,9 @@
     <None Include="Release\scene1.test" />
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="outfile.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

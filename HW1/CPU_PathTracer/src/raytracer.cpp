@@ -37,8 +37,7 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 	float beta = tan(fovY * 0.5f) * (1.0f - (2.0f * (static_cast<float>(j) + 0.5f) / static_cast<float>(height)));
 
 	glm::vec3 direction = glm::normalize(alpha * u + beta * v - w);
-	direction = glm::vec4(direction, 0.0f);
-	return Ray(glm::vec4(cam.getEyePos(), 1.0f), direction);
+	return Ray(cam.getEyePos(), direction);
 }
 
 glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
@@ -90,46 +89,32 @@ glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
 
 float CheckSphereIntersection(Sphere* sphere, Ray& ray)
 {
+	glm::vec3 oc = ray.origin - sphere->center;
+
 	float a = glm::dot(ray.direction, ray.direction);
-	float b = 2 * (glm::dot(ray.direction, (ray.origin - sphere->center)));
-	float c = glm::dot((ray.origin - sphere->center), (ray.origin - sphere->center)) - glm::dot(sphere->radius, sphere->radius);
+	float b = 2.0f * glm::dot(ray.direction, oc);
+	float c = glm::dot(oc, oc) - sphere->radius * sphere->radius;
 
-	//	float discriminant = (b * b) - (4 * a * c);
-	float discriminant = (glm::dot(ray.direction, (ray.origin - sphere->center))) * (glm::dot(ray.direction, (ray.origin - sphere->center))) - ((glm::dot(ray.origin - sphere->center, ray.origin - sphere->center)) - glm::dot(sphere->radius, sphere->radius));
+	float discriminant = b * b - 4.0f * a * c;
 
-	int roots = 0;
-	bool pickPositiveRoot = false;
-	bool pickSmallerRoot = false;
-
-	if (discriminant > 0)
-	{
-		roots = 2;
-		pickSmallerRoot = true;
-	}
-	else if (discriminant < 0)
+	if (discriminant < 0.0f)
 	{
 		return INFINITY;
 	}
-	else if (discriminant == 0)
-	{
-		roots = 1;
 
+	float sqrtDiscriminant = glm::sqrt(discriminant);
+	float t1 = (-b - sqrtDiscriminant) / (2.0f * a);
+	float t2 = (-b + sqrtDiscriminant) / (2.0f * a);
+
+	if (t1 > 0.0f)
+	{
+		return t1;
 	}
 
-	float t1 = (-b + glm::sqrt(discriminant)) / (2 * a);
-	float t2 = (-b - glm::sqrt(discriminant)) / (2 * a);
-
-	if (t1 < 0 && t2 > 0)
+	if (t2 > 0.0f)
+	{
 		return t2;
-
-	if (t2 < 0 && t1 > 0)
-		return t1;
-
-	if (pickSmallerRoot)
-		return t1 < t2 ? t1 : t2;
-
-	if (t2 > 0 && t1 > 0)
-		return t1 > t2 ? t1 : t2;
+	}
 
 	return INFINITY;
 }
@@ -140,6 +125,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	Sphere* hitSphere = NULL;
 	Triangle* hitTri = NULL;
 	bool didHit = false;
+	float worldt = minDist;
 	float t = minDist;
 	float tSphere = minDist;
 	float tTriangle = minDist;
@@ -148,6 +134,8 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	glm::vec3 hitObjectEmission = glm::vec3(0, 0, 0);
 	glm::vec3 hitObjectAmbient = glm::vec3(0, 0, 0);
 	glm::vec3 hitObjectNormal = glm::vec3(0, 0, 0);
+	glm::vec3 sphereLocalNormal = glm::vec3(0, 0, 0);
+	glm::vec3 sphereWorldNormal = glm::vec3(0, 0, 0);
 	float hitObjectShininess = 0.0f;
 	glm::vec3 tBetaGamma2;
 	glm::vec3 intersectionPoint(INFINITY, INFINITY, INFINITY);
@@ -160,24 +148,36 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 
 	for (Sphere* sphere : sceneSpheres)
 	{
-		Ray* transformedRay = new Ray(glm::inverse(sphere->transform) * glm::vec4(ray.origin, 1.0f), glm::inverse(sphere->transform) * glm::vec4(ray.direction, 0.0f));
+		glm::mat4 invTransform = glm::inverse(sphere->transform);
 
-		t = CheckSphereIntersection(sphere, *transformedRay);
-		if (t < minDist && t > 0)
+		Ray transformedRay(
+			glm::vec3(invTransform * glm::vec4(ray.origin, 1.0f)),
+			glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
+
+		t = CheckSphereIntersection(sphere, transformedRay);
+
+		if (t > 0.0f && t < INFINITY)
 		{
-			minDist = t;
-			didHit = true;
-			hitSphere = sphere;
-			tSphere = t;
-			hitObjectIsSphere = true;
-			hitObjectAmbient = sphere->ambient;
-			hitObjectDiffuse = sphere->diffuse;
-			hitObjectSpecular = sphere->specular;
-			hitObjectEmission = sphere->emission;
-			hitObjectShininess = sphere->shininess;
-			hitObjectIOR = sphere->ior;
-			hitHasTexture = sphere->matTexture != NULL;
-			hitObjectTexture = sphere->matTexture;
+			glm::vec3 localHitPoint = transformedRay.origin + transformedRay.direction * t;
+			glm::vec3 worldHitPoint = glm::vec3(sphere->transform * glm::vec4(localHitPoint, 1.0f));
+			float worldDist = glm::length(worldHitPoint - ray.origin);
+
+			if (worldDist < minDist)
+			{
+				minDist = worldDist;
+				didHit = true;
+				hitSphere = sphere;
+				tSphere = t;
+				hitObjectIsSphere = true;
+				hitObjectAmbient = sphere->ambient;
+				hitObjectDiffuse = sphere->diffuse;
+				hitObjectSpecular = sphere->specular;
+				hitObjectEmission = sphere->emission;
+				hitObjectShininess = sphere->shininess;
+				hitObjectIOR = sphere->ior;
+				hitHasTexture = sphere->matTexture != NULL;
+				hitObjectTexture = sphere->matTexture;
+			}
 		}
 	}
 
@@ -212,9 +212,19 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 	{
 		if (hitObjectIsSphere)
 		{
-			intersectionPoint = ray.origin + ray.direction * tSphere;
-			intersectionPoint = hitSphere->transform * glm::vec4(intersectionPoint, 1.0f);
-			hitObjectNormal = glm::normalize(intersectionPoint - hitSphere->center);
+			glm::mat4 invTransform = glm::inverse(hitSphere->transform);
+
+			Ray transformedRay(
+				glm::vec3(invTransform * glm::vec4(ray.origin, 1.0f)),
+				glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
+
+			glm::vec3 localHitPoint = transformedRay.origin + transformedRay.direction * tSphere;
+			glm::vec3 localNormal = glm::normalize(localHitPoint - hitSphere->center);
+
+			intersectionPoint = glm::vec3(hitSphere->transform * glm::vec4(localHitPoint, 1.0f));
+
+			glm::mat3 normalMat = glm::transpose(glm::inverse(glm::mat3(hitSphere->transform)));
+			hitObjectNormal = glm::normalize(normalMat * localNormal);
 
 			return new Intersection(
 				true,
@@ -225,7 +235,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 				hitObjectShininess,
 				hitObjectAmbient,
 				hitObjectNormal,
-				hitSphere->center,
+				glm::vec3(hitSphere->transform * glm::vec4(hitSphere->center, 1.0f)),
 				hitObjectIOR,
 				hitHasTexture,
 				hitObjectTexture);
@@ -480,7 +490,7 @@ int main() {
 			std::cout << line << std::endl;
 			modelStack = prevMatrix;
 
-			if (transformStack.size() > 0)
+			if (transformStack.size() > 1)
 			{
 				transformStack.pop_back();
 			}
@@ -552,7 +562,7 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(glm::vec4(sphereX, sphereY, sphereZ, 1.0f), sphereRadius, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
+			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
 		}
 
 		if (cmd == "maxverts")
