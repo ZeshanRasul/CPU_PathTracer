@@ -459,7 +459,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-diffuse.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene7.test");
 	std::string line;
 
 	while (std::getline(file, line))
