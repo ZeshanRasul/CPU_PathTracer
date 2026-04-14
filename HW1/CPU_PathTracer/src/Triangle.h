@@ -18,9 +18,9 @@ public:
 		matTexture(matTex)
 
 	{
-		normalA = normalize(cross((vertex2 - vertex0), (vertex1 - vertex0)));
-		normalB = normalize(cross((vertex0 - vertex1), (vertex2 - vertex1)));
-		normalC = normalize(cross((vertex1 - vertex2), (vertex0 - vertex2)));
+		normalA = glm::normalize(glm::cross((vertex2 - vertex0), (vertex1 - vertex0)));
+		normalB = glm::normalize(glm::cross((vertex0 - vertex1), (vertex2 - vertex1)));
+		normalC = glm::normalize(glm::cross((vertex1 - vertex2), (vertex0 - vertex2)));
 	}
 
 	Triangle()

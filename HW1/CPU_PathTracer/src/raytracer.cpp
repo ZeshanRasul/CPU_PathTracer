@@ -11,6 +11,7 @@
 #include "Scene.h"
 
 int bounces = 0;
+int maxDepth;
 
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
@@ -254,13 +255,13 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		NULL);
 }
 
-const int MAX_DEPTH = 3;
 glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 {
 	glm::vec3 finalCol = glm::vec3(0.0f);
 
 	if (intersection->didHit)
 	{
+		return intersection->hitObjectDiffuse;
 		finalCol += intersection->hitObjectAmbient * 0.1f;
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
@@ -281,10 +282,10 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
-			for (int i = 0; i < MAX_DEPTH; i++)
+			for (int i = 0; i < maxDepth; i++)
 			{
 				bounces++;
-				if (bounces >= MAX_DEPTH)
+				if (bounces >= maxDepth)
 				{
 					break;
 				}
@@ -336,11 +337,11 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
-			for (int i = 0; i < MAX_DEPTH; i++)
+			for (int i = 0; i < maxDepth; i++)
 			{
 				bounces++;
 
-				if (bounces >= MAX_DEPTH)
+				if (bounces >= maxDepth)
 				{
 					break;
 				}
@@ -380,9 +381,46 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 	}
 	else
 	{
-		return finalCol = glm::vec3(0.0f, 0.0f, 1.0f);
+		return finalCol = glm::vec3(0.0f, 0.0f, 0.0f);
 	}
 }
+
+
+struct Vertex
+{
+	glm::vec3 position;
+};
+
+//struct Tri
+//{
+//	Vertex v0;
+//	Vertex v1;
+//	Vertex v2;
+//
+//	Tri(Vertex v0, Vertex v1, Vertex v2)
+//		:
+//		v0(v0),
+//		v1(v1),
+//		v2(v2)
+//	{
+//	}
+//};
+
+//struct Sphere
+//	{
+//	glm::vec3 center;
+//	float radius;
+//	Sphere(glm::vec3 center, float radius)
+//		:
+//		center(center),
+//		radius(radius)
+//	{
+//	}
+//};
+
+std::vector<Vertex> verts;
+//std::vector<Tri> triangles;
+//std::vector<Sphere> spheres;
 
 int main() {
 	std::string fname = "outfile.png";
@@ -404,6 +442,14 @@ int main() {
 	int centerX, centerY, centerZ;
 	int upX, upY, upZ;
 	float fovY;
+	float ambientR, ambientG, ambientB;
+	float dirLightX, dirLightY, dirLightZ;
+	float dirLightR, dirLightG, dirLightB;
+	float sphereX, sphereY, sphereZ, sphereRadius;
+	int maxVerts;
+	int maxVertNorms;
+	Scene* scene = new Scene();
+
 
 	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene1.test");
 	std::string line;
@@ -435,12 +481,92 @@ int main() {
 			height = h;
 		}
 
+		if (cmd == "maxDepth")
+		{
+			int d;
+			iss >> d;
+			maxDepth = d;
+		}
+
+		if (cmd == "output")
+		{
+			std::string outputFile;
+			iss >> outputFile;
+			fname = outputFile;
+		}
+
 		if (cmd == "camera") {
 			std::cout << line << std::endl;
+			iss >> eyeX >> eyeY >> eyeZ >> centerX >> centerY >> centerZ >> upX >> upY >> upZ >> fovY;
+		}
 
-	
+		if (cmd == "sphere")
+		{
+			std::cout << line << std::endl;
+			iss >> cmd >> sphereX >> sphereY >> sphereZ >> sphereRadius;
+			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(0.0f, 0.0f, 0.0f), 1.0f));
+		}
 
-			iss >> cmd >> eyeX >> eyeY >> eyeZ >> centerX >> centerY >> centerZ >> upX >> upY >> upZ >> fovY;
+		if (cmd == "maxverts")
+		{
+			std::cout << line << std::endl;
+			iss >> cmd >> maxVerts;
+		}
+
+		if (cmd == "maxvertnorms")
+		{
+			std::cout << line << std::endl;
+			iss >> cmd >> maxVertNorms;
+		}
+
+		if (cmd == "vertex")
+		{
+			std::cout << line << std::endl;
+			float vertX, vertY, vertZ;
+			iss >> vertX >> vertY >> vertZ;
+			verts.push_back(Vertex{ glm::vec3(vertX, vertY, vertZ) });
+		}
+
+		if (cmd == "vertexnormal")
+		{
+			std::cout << line << std::endl;
+		}
+
+		if (cmd == "tri")
+		{
+			std::cout << line << std::endl;
+			int v0, v1, v2;
+			iss >> v0 >> v1 >> v2;
+		/*	v0 = v0 - 1;
+			v1 = v1 - 1;
+			v2 = v2 - 1;*/
+			scene->AddTriangle(new Triangle(verts[v0].position, verts[v1].position, verts[v2].position, glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(0.1), NULL));
+		}
+
+		if (cmd == "trinormal")
+		{
+			std::cout << line << std::endl;
+		}
+
+		if (cmd == "directional")
+		{
+			std::cout << line << std::endl;
+			iss >> cmd >> dirLightX >> dirLightY >> dirLightZ >> dirLightR >> dirLightG >> dirLightB;
+		}
+
+		if (cmd == "point")
+		{
+			std::cout << line << std::endl;
+		}
+
+		if (cmd == "attenuation const linear quadratic")
+		{
+			std::cout << line << std::endl;
+		}
+
+		if (cmd == "ambient")
+		{
+			iss >> cmd >> ambientR >> ambientG >> ambientB;
 		}
 	}
 
@@ -449,35 +575,6 @@ int main() {
 	const int IMAGE_WIDTH = width;
 	const int IMAGE_HEIGHT = height;
 
-	//inFile.getline(text, 1000, '\n');
-	//std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 5, ' ');
-	std::cout << text << std::endl;
-
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-	inFile.getline(text, 1000, '\n');
-	std::cout << text << std::endl;
-
-
-
-
 	BYTE* pixels = (BYTE*)malloc(sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 	if (!pixels) {
 		FreeImage_DeInitialise();
@@ -485,248 +582,7 @@ int main() {
 	}
 	memset(pixels, 0, sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-	
-
-	
-
-	char ignore4[1000];
-	char ignore[10];
-
-	inFile >> ignore;
-	inFile >> ignore4;
-
-	char ignore6[100];
-
-	inFile.getline(ignore6, 100, '\n');
-	std::cout << "Ambient: " << ignore6 << std::endl;
-
-	char ambx[4];
-	inFile.getline(ambx, 3, ' ');
-
-	char amby[4];
-	inFile.getline(amby, 3, ' ');
-		
-	char ambz[4];
-	inFile.getline(ambz, 3, ' ');
-
-	std::cout << "AmbientZ: " << ambz << std::endl;
-	inFile.get(ignore, ' ');
-
-	char newAmbx[4];
-	if (ambx[0] = ' .')
-	{
-		newAmbx[0] = '0';
-		newAmbx[1] = '.';
-		newAmbx[2] = ambx[1];
-		newAmbx[3] = '\n';;
-	}
-
-	char newAmby[4];
-	if (amby[0] = ' .')
-	{
-		newAmby[0] = '0';
-		newAmby[1] = '.';
-		newAmby[2] = amby[1];
-		newAmby[3] = '\n';;
-	}
-
-	char newAmbz[4];
-	if (ambz[0] = ' .')
-	{
-		newAmbz[0] = '0';
-		newAmbz[1] = '.';
-		newAmbz[2] = ambz[1];
-		newAmbz[3] = '\n';
-	}
-
-	std::cout << "AmbientZ: " << newAmbz << std::endl;
-
-
-	glm::vec3 ambient(std::stof(newAmbx), std::stof(newAmby), std::stof(newAmbz));
-
-	std::cout << "Ambient: " << ambient.r << ' ' << ambient.g << ' ' << ambient.b << std::endl;
-
-	inFile.getline(ignore, '\n');
-
-	inFile.get(ignore, ' ');
-
-	char dirx[4];
-	inFile.getline(dirx, 4, ' ');
-
-	char diry[4];
-	inFile.getline(diry, 4, ' ');
-
-	char dirz[4];
-	inFile.getline(dirz, 4, ' ');
-
-	glm::vec3 dir(std::stoi(dirx, 0, 10), std::stoi(diry, 0, 10), std::stoi(dirz, 0, 10));
-
-	inFile.getline(ignore, '\n');
-	inFile.get(ignore, ' ');
-
-	char dirCx[4];
-	inFile.getline(dirCx, 4, ' ');
-
-	char dirCy[4];
-	inFile.getline(dirCy, 4, ' ');
-
-	char dirCz[4];
-	inFile.getline(dirCz, 4, ' ');
-
-	char newDirCx[4];
-	if (dirCx[0] = '.')
-	{
-		newDirCx[0] = '0';
-		newDirCx[1] = '.';
-		newDirCx[2] = dirCx[1];
-		newDirCx[3] = dirCx[2];
-	}
-
-	char newDirCy[4];
-	if (dirCy[0] = '.')
-	{
-		newDirCy[0] = '0';
-		newDirCy[1] = '.';
-		newDirCy[2] = dirCy[1];
-		newDirCy[3] = dirCy[2];
-	}
-
-	char newDirCz[4];
-	if (dirCz[0] = '.')
-	{
-		newDirCz[0] = '0';
-		newDirCz[1] = '.';
-		newDirCz[2] = dirCz[1];
-		newDirCz[3] = dirCz[2];
-	}
-
-	glm::vec3 dirCol(std::stoi(dirCx, 0, 10), std::stoi(dirCy, 0, 10), std::stoi(dirCz, 0, 10));
-
-
-	//char ambx[4];
-	//inFile.getline(ambx, 4, ' ');
-
-	//char amby[4];
-	//inFile.getline(amby, 4, ' ');
-
-	//char ambz[4];
-	//inFile.getline(ambz, 4, ' ');
-
-	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
-
-
-	//char ambx[4];
-	//inFile.getline(ambx, 4, ' ');
-
-	//char amby[4];
-	//inFile.getline(amby, 4, ' ');
-
-	//char ambz[4];
-	//inFile.getline(ambz, 4, ' ');
-
-	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
-
-
-	//char ambx[4];
-	//inFile.getline(ambx, 4, ' ');
-
-	//char amby[4];
-	//inFile.getline(amby, 4, ' ');
-
-	//char ambz[4];
-	//inFile.getline(ambz, 4, ' ');
-
-	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
-
-
-
-	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, ambient, 1.0f);
-	scene->AddSphere(sphere);
-
-	Sphere* sphere2 = new Sphere(glm::vec3(-20.0f, -10.0f, 0.0f), 3.0f, glm::vec3(0, 0, 1), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, ambient, 1.0f);
-	scene->AddSphere(sphere2);
-
-	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
-
-	//DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	//scene->AddDirectionalLight(dirLight);
-	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.1f, -0.8f, 0.3f), glm::vec3(0.4f, 0.4f, 0.4f));
-	//scene->AddDirectionalLight(dirLight2);
-
-	// Key light - main illumination from upper right
-	//PointLight* pointLight = new PointLight(glm::vec3(5.0f, -5.0f, 10.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	//scene->AddPointLight(pointLight);
-
-	//// Fill light - softer light from left to reduce harsh shadows
-	//PointLight* pointLight2 = new PointLight(glm::vec3(-5.0f, -3.0f, 8.0f), glm::vec3(0.4f, 0.4f, 0.4f));
-	//scene->AddPointLight(pointLight2);
-
-	//// Rim light - optional, adds definition from behind
-	//PointLight* pointLight3 = new PointLight(glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-	//scene->AddPointLight(pointLight3);
-
-	// Directional light - simulates sun/general ambient direction
-	DirectionalLight* dirLight = new DirectionalLight(dir, dirCol);
-	scene->AddDirectionalLight(dirLight);
-	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.0f, -0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));
-	//scene->AddDirectionalLight(dirLight2);
-
-	auto checker = checker_texture(0.32f, glm::vec3(.2, .3, .1), glm::vec3(.9, .9, .9));
-
-
-	float triWidth = 50.0f;
-	float triHeight = 50.00f;
-	float triDepth = 50.0f;
-	float triCenter = 0.00f;
-
-	glm::vec3 vert0(-triWidth, -triHeight, -triDepth);
-	glm::vec3 vert1(-triWidth, +triHeight, -triDepth);
-	glm::vec3 vert2(+triWidth, +triHeight, -triDepth);
-	glm::vec3 vert3(+triWidth, -triHeight, -triDepth);
-	glm::vec3 vert4(-triWidth, -triHeight, +triDepth);
-	glm::vec3 vert5(-triWidth, +triHeight, +triDepth);
-	glm::vec3 vert6(+triWidth, +triHeight, +triDepth);
-	glm::vec3 vert7(+triWidth, -triHeight, +triDepth);
-
-	Triangle* tri0 = new Triangle(vert0, vert4, vert7, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri1 = new Triangle(vert0, vert7, vert3, glm::vec3(1.0f, 0.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri2 = new Triangle(vert1, vert5, vert6, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.0f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri3 = new Triangle(vert1, vert6, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(1.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri4 = new Triangle(vert3, vert2, vert6, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri5 = new Triangle(vert3, vert6, vert7, glm::vec3(0.0f, 0.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri6 = new Triangle(vert0, vert5, vert1, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri7 = new Triangle(vert0, vert4, vert5, glm::vec3(1.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.00f, 1.00f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri8 = new Triangle(vert0, vert1, vert2, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri9 = new Triangle(vert0, vert2, vert3, glm::vec3(0.0f, 1.0f, 0.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
-
-	glm::vec3 a = glm::vec3(0, 0, 0);
-	glm::vec3 b = glm::vec3(1, 0, 0);
-	glm::vec3 c = glm::vec3(0, 0, 1);
-	glm::vec3 d = glm::vec3(1, 0, 1);
-
-	//// -Y
-	//scene->AddTriangle(tri0);
-	//scene->AddTriangle(tri1);
-
-//	 +Y
-	//scene->AddTriangle(tri2);
-	//scene->AddTriangle(tri3);
-
-	//// +X
-	//scene->AddTriangle(tri4);
-	//scene->AddTriangle(tri5);
-
-	//// -X
-	//scene->AddTriangle(tri6);
-	//scene->AddTriangle(tri7);
-	//// -Z
-	//scene->AddTriangle(tri8);
-	//scene->AddTriangle(tri9);
-//	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
-
+	glm::vec3 col = glm::vec3(0.0f);
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
 	{
@@ -737,9 +593,9 @@ int main() {
 			Intersection* intersection = FindIntersection(scene, ray);
 			col = FindColor(intersection, scene, &cam);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
-			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
+			pixels[idx + 0] = std::min(col.r * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
-			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
+			pixels[idx + 2] = std::min(col.b * 255, 255.0f);
 		}
 
 	}
