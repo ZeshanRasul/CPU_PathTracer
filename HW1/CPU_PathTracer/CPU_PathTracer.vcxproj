@@ -145,6 +145,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene1.txt" />
+    <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
     <None Include=".gitignore" />
     <None Include="Release\scene1.test" />
   </ItemGroup>

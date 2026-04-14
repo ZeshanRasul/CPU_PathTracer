@@ -55,5 +55,6 @@
     <None Include=".gitignore" />
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene1.txt" />
     <None Include="Release\scene1.test" />
+    <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
   </ItemGroup>
 </Project>

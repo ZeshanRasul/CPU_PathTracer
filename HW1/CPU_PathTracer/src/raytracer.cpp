@@ -422,10 +422,10 @@ int main() {
 
 	char text[1000];
 	std::ifstream inFile;
-	inFile.open("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene1.test");
+	inFile.open("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene2.test");
 
 	if (!inFile) {
-		std::cerr << "Unable to open file scene1.txt";
+		std::cerr << "Unable to open file scene2.test";
 		exit(1);   // call system to stop
 	}
 
@@ -445,7 +445,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene1.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene2.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -497,7 +497,7 @@ int main() {
 		if (cmd == "sphere")
 		{
 			std::cout << line << std::endl;
-			iss >> cmd >> sphereX >> sphereY >> sphereZ >> sphereRadius;
+			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
 			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(0.0f, 0.0f, 0.0f), 1.0f));
 		}
 
