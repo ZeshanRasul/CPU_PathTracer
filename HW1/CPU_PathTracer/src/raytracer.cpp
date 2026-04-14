@@ -3,6 +3,7 @@
 #include <cstdlib> 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 #include "Camera.h"
 #include "Ray.h"
@@ -396,8 +397,58 @@ int main() {
 		exit(1);   // call system to stop
 	}
 
-	char width[5];
-	char height[5];
+	glm::vec3 eyePos, center, up;
+	int width;
+	int height;
+	int eyeX, eyeY, eyeZ;
+	int centerX, centerY, centerZ;
+	int upX, upY, upZ;
+	float fovY;
+
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene1.test");
+	std::string line;
+
+	while (std::getline(file, line))
+	{
+		// Remove null characters from the line
+		line.erase(std::remove(line.begin(), line.end(), '\0'), line.end());
+
+		if (line.empty())
+			continue;
+
+		// Process clean line
+
+		if (line[0] == '#') {
+			std::cout << line << std::endl;
+			continue;
+		}
+
+		std::istringstream iss(line);
+		std::string cmd;
+		iss >> cmd;
+
+		if (cmd == "size")
+		{
+			int w, h;
+			iss >> w >> h;
+			width = w;
+			height = h;
+		}
+
+		if (cmd == "camera") {
+			std::cout << line << std::endl;
+
+	
+
+			iss >> cmd >> eyeX >> eyeY >> eyeZ >> centerX >> centerY >> centerZ >> upX >> upY >> upZ >> fovY;
+		}
+	}
+
+	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
+
+	const int IMAGE_WIDTH = width;
+	const int IMAGE_HEIGHT = height;
+
 	//inFile.getline(text, 1000, '\n');
 	//std::cout << text << std::endl;
 	inFile.getline(text, 1000, '\n');
@@ -408,11 +459,6 @@ int main() {
 	std::cout << text << std::endl;
 	inFile.getline(text, 5, ' ');
 	std::cout << text << std::endl;
-	inFile.getline(width, 5, ' ');
-	inFile.getline(height, 5, '\n');
-	std::cout << "Width: " << width << " Height: " << height << std::endl;
-	const int IMAGE_WIDTH = strtol(width, nullptr, 10);
-	const int IMAGE_HEIGHT = strtol(height, nullptr, 10);
 
 	inFile.getline(text, 1000, '\n');
 	std::cout << text << std::endl;
@@ -430,17 +476,7 @@ int main() {
 	std::cout << text << std::endl;
 
 
-	char camera[7];
-	inFile.getline(camera, 7, ' ');
 
-	char eyeX[4];
-	inFile.getline(eyeX, 4, ' ');
-
-	char eyeY[4];
-	inFile.getline(eyeY, 4, ' ');
-
-	char eyeZ[4];
-	inFile.getline(eyeZ, 4, ' ');
 
 	BYTE* pixels = (BYTE*)malloc(sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 	if (!pixels) {
@@ -449,46 +485,166 @@ int main() {
 	}
 	memset(pixels, 0, sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-	char* endptr;
-	int eyex = std::stoi(eyeX, 0, 10);
-	int eyey = std::stoi(eyeY, 0, 10);
-	int eyez = std::stoi(eyeZ, 0, 10);
+	
 
-	glm::vec3 eyePos;
-	eyePos[0] = eyex;
-	eyePos[1] = eyey;
-	eyePos[2] = eyez;
+	
 
-	char centerx[4];
-	inFile.getline(centerx, 4, ' ');
+	char ignore4[1000];
+	char ignore[10];
 
-	char centery[4];
-	inFile.getline(centery, 4, ' ');
+	inFile >> ignore;
+	inFile >> ignore4;
 
-	char centerz[4];
-	inFile.getline(centerz, 4, ' ');
+	char ignore6[100];
 
-	glm::vec3 center(std::stoi(centerx, 0, 10), std::stoi(centery, 0, 10), std::stoi(centerz, 0, 10));
+	inFile.getline(ignore6, 100, '\n');
+	std::cout << "Ambient: " << ignore6 << std::endl;
 
-	char upx[4];
-	inFile.getline(upx, 4, ' ');
+	char ambx[4];
+	inFile.getline(ambx, 3, ' ');
 
-	char upy[4];
-	inFile.getline(upy, 4, ' ');
+	char amby[4];
+	inFile.getline(amby, 3, ' ');
+		
+	char ambz[4];
+	inFile.getline(ambz, 3, ' ');
 
-	char upz[4];
-	inFile.getline(upz, 4, ' ');
-	glm::vec3 up(std::stoi(upx, 0, 10), std::stoi(upy, 0, 10), std::stoi(upz, 0, 10));
+	std::cout << "AmbientZ: " << ambz << std::endl;
+	inFile.get(ignore, ' ');
 
-	char fovY[4];
-	inFile.getline(fovY, 4, ' ');
-	Camera cam(eyePos, center, up, glm::radians(std::stof(fovY)));
+	char newAmbx[4];
+	if (ambx[0] = ' .')
+	{
+		newAmbx[0] = '0';
+		newAmbx[1] = '.';
+		newAmbx[2] = ambx[1];
+		newAmbx[3] = '\n';;
+	}
+
+	char newAmby[4];
+	if (amby[0] = ' .')
+	{
+		newAmby[0] = '0';
+		newAmby[1] = '.';
+		newAmby[2] = amby[1];
+		newAmby[3] = '\n';;
+	}
+
+	char newAmbz[4];
+	if (ambz[0] = ' .')
+	{
+		newAmbz[0] = '0';
+		newAmbz[1] = '.';
+		newAmbz[2] = ambz[1];
+		newAmbz[3] = '\n';
+	}
+
+	std::cout << "AmbientZ: " << newAmbz << std::endl;
+
+
+	glm::vec3 ambient(std::stof(newAmbx), std::stof(newAmby), std::stof(newAmbz));
+
+	std::cout << "Ambient: " << ambient.r << ' ' << ambient.g << ' ' << ambient.b << std::endl;
+
+	inFile.getline(ignore, '\n');
+
+	inFile.get(ignore, ' ');
+
+	char dirx[4];
+	inFile.getline(dirx, 4, ' ');
+
+	char diry[4];
+	inFile.getline(diry, 4, ' ');
+
+	char dirz[4];
+	inFile.getline(dirz, 4, ' ');
+
+	glm::vec3 dir(std::stoi(dirx, 0, 10), std::stoi(diry, 0, 10), std::stoi(dirz, 0, 10));
+
+	inFile.getline(ignore, '\n');
+	inFile.get(ignore, ' ');
+
+	char dirCx[4];
+	inFile.getline(dirCx, 4, ' ');
+
+	char dirCy[4];
+	inFile.getline(dirCy, 4, ' ');
+
+	char dirCz[4];
+	inFile.getline(dirCz, 4, ' ');
+
+	char newDirCx[4];
+	if (dirCx[0] = '.')
+	{
+		newDirCx[0] = '0';
+		newDirCx[1] = '.';
+		newDirCx[2] = dirCx[1];
+		newDirCx[3] = dirCx[2];
+	}
+
+	char newDirCy[4];
+	if (dirCy[0] = '.')
+	{
+		newDirCy[0] = '0';
+		newDirCy[1] = '.';
+		newDirCy[2] = dirCy[1];
+		newDirCy[3] = dirCy[2];
+	}
+
+	char newDirCz[4];
+	if (dirCz[0] = '.')
+	{
+		newDirCz[0] = '0';
+		newDirCz[1] = '.';
+		newDirCz[2] = dirCz[1];
+		newDirCz[3] = dirCz[2];
+	}
+
+	glm::vec3 dirCol(std::stoi(dirCx, 0, 10), std::stoi(dirCy, 0, 10), std::stoi(dirCz, 0, 10));
+
+
+	//char ambx[4];
+	//inFile.getline(ambx, 4, ' ');
+
+	//char amby[4];
+	//inFile.getline(amby, 4, ' ');
+
+	//char ambz[4];
+	//inFile.getline(ambz, 4, ' ');
+
+	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
+
+
+	//char ambx[4];
+	//inFile.getline(ambx, 4, ' ');
+
+	//char amby[4];
+	//inFile.getline(amby, 4, ' ');
+
+	//char ambz[4];
+	//inFile.getline(ambz, 4, ' ');
+
+	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
+
+
+	//char ambx[4];
+	//inFile.getline(ambx, 4, ' ');
+
+	//char amby[4];
+	//inFile.getline(amby, 4, ' ');
+
+	//char ambz[4];
+	//inFile.getline(ambz, 4, ' ');
+
+	//glm::vec3 ambient(std::stoi(ambx, 0, 10), std::stoi(amby, 0, 10), std::stoi(ambz, 0, 10));
+
+
 
 	Scene* scene = new Scene();
-	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f), 1.5f);
+	Sphere* sphere = new Sphere(glm::vec3(2.0, -6, -0), 5.0f, glm::vec3(1, 0, 0), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, ambient, 1.0f);
 	scene->AddSphere(sphere);
 
-	Sphere* sphere2 = new Sphere(glm::vec3(-20.0f, -10.0f, 0.0f), 3.0f, glm::vec3(0, 0, 1), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, glm::vec3(0.1f, 0.1f, 0.1f), 1.5f);
+	Sphere* sphere2 = new Sphere(glm::vec3(-20.0f, -10.0f, 0.0f), 3.0f, glm::vec3(0, 0, 1), glm::vec3(1.0, 1.0, 1.0), glm::vec3(0, 0, 0), 32.0f, ambient, 1.0f);
 	scene->AddSphere(sphere2);
 
 	glm::vec3 col = glm::vec3(1.0f, 0.0f, 1.0f);
@@ -511,7 +667,7 @@ int main() {
 	//scene->AddPointLight(pointLight3);
 
 	// Directional light - simulates sun/general ambient direction
-	DirectionalLight* dirLight = new DirectionalLight(glm::vec3(0.0f, 0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));
+	DirectionalLight* dirLight = new DirectionalLight(dir, dirCol);
 	scene->AddDirectionalLight(dirLight);
 	//DirectionalLight* dirLight2 = new DirectionalLight(glm::vec3(0.0f, -0.7f, -0.3f), glm::vec3(0.5f, 0.5f, 0.5f));
 	//scene->AddDirectionalLight(dirLight2);
