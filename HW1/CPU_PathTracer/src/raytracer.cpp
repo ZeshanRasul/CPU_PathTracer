@@ -15,25 +15,19 @@ int maxDepth;
 
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
-	glm::vec3 a, b, u, v, w;
+	glm::vec3 w = glm::normalize(cam.getEyePos() - cam.getCenter());
+	glm::vec3 u = glm::normalize(glm::cross(cam.getUp(), w));
+	glm::vec3 v = glm::cross(w, u);
 
-	a = cam.getEyePos() - cam.getCenter();
-	b = cam.getUp();
+	float fovY = cam.getFovY();
+	float aspect = static_cast<float>(width) / static_cast<float>(height);
+	float fovX = 2.0f * atan(aspect * tan(fovY * 0.5f));
 
-	w = glm::normalize(a);
-	u = (glm::normalize(glm::cross(b, w)));
-	v = glm::cross(w, u);
+	float alpha = tan(fovX * 0.5f) * ((2.0f * (static_cast<float>(i) + 0.5f) / static_cast<float>(width)) - 1.0f);
+	float beta = tan(fovY * 0.5f) * (1.0f - (2.0f * (static_cast<float>(j) + 0.5f) / static_cast<float>(height)));
 
-	float fovX = 2 * atan((height * tan(cam.getFovY() / 2.0f)) / width);
-	float alpha = (tan(cam.getFovY() / 2.0f) * ((float(i) - (float(width) / 2.0f)) / (float(width) / 2.0f)));
-	float beta = tan(fovX / 2.0f) * (((float(height) / 2.0f) - float(j)) / (float(height) / 2.0f));
-
-	glm::vec3 direction = glm::normalize((alpha * u) + (beta * v) - w);
-	glm::vec3 origin = cam.getEyePos();
-	Ray ray(origin, direction);
-
-	return ray;
-
+	glm::vec3 direction = glm::normalize(alpha * u + beta * v - w);
+	return Ray(cam.getEyePos(), direction);
 }
 
 glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
@@ -551,7 +545,7 @@ int main() {
 		if (cmd == "directional")
 		{
 			std::cout << line << std::endl;
-			iss >> cmd >> dirLightX >> dirLightY >> dirLightZ >> dirLightR >> dirLightG >> dirLightB;
+			iss >> dirLightX >> dirLightY >> dirLightZ >> dirLightR >> dirLightG >> dirLightB;
 		}
 
 		if (cmd == "point")
@@ -566,7 +560,7 @@ int main() {
 
 		if (cmd == "ambient")
 		{
-			iss >> cmd >> ambientR >> ambientG >> ambientB;
+			iss >> ambientR >> ambientG >> ambientB;
 		}
 	}
 
@@ -582,7 +576,7 @@ int main() {
 	}
 	memset(pixels, 0, sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-	glm::vec3 col = glm::vec3(0.0f);
+	glm::vec3 col = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	for (int y = 0; y < IMAGE_HEIGHT; y++)
 	{
@@ -593,13 +587,13 @@ int main() {
 			Intersection* intersection = FindIntersection(scene, ray);
 			col = FindColor(intersection, scene, &cam);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
-			pixels[idx + 0] = std::min(col.r * 255, 255.0f);
+			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
-			pixels[idx + 2] = std::min(col.b * 255, 255.0f);
+			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
 		}
 
 	}
-	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, false);
+	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
 
 	FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
 
