@@ -42,49 +42,45 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 
 glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
 {
+	const float epsilon = 1e-6f;
+
 	glm::vec3 e1 = triangle->vertex1 - triangle->vertex0;
 	glm::vec3 e2 = triangle->vertex2 - triangle->vertex0;
-	glm::vec3 s = ray.origin - triangle->vertex0;
-	glm::vec3 s1 = glm::cross(ray.direction, e2);
-	glm::vec3 s2 = glm::cross(s, e1);
 
-	glm::vec3 tBetaGamma = (1 / glm::dot(s1, e1)) * glm::vec3(glm::dot(s2, e2), glm::dot(s1, s), glm::dot(s2, ray.direction));
+	glm::vec3 pvec = glm::cross(ray.direction, e2);
+	float det = glm::dot(e1, pvec);
 
-	float t = tBetaGamma.x;
-	float beta = tBetaGamma.y;
-	float gamma = tBetaGamma.z;
-	float alpha = 1 - beta - gamma;
-
-
-	glm::vec3 q = ray.origin + (t * ray.direction);
-
-	glm::vec3 bMinusA = triangle->vertex1 - triangle->vertex0;
-	glm::vec3 cMinusA = triangle->vertex2 - triangle->vertex0;
-
-	glm::vec3 cMinusB = triangle->vertex2 - triangle->vertex1;
-	glm::vec3 qMinusB = q - triangle->vertex1;
-
-	glm::vec3 aMinusC = triangle->vertex0 - triangle->vertex2;
-	glm::vec3 qMinusC = q - triangle->vertex2;
-
-	glm::vec3 qMinusA = q - triangle->vertex0;
-
-	float denominator = (glm::dot(glm::cross(bMinusA, cMinusA), triangle->normalA));
-
-	float alpha2 = (glm::dot(glm::cross(cMinusB, qMinusB), triangle->normalA)) / denominator;
-	float beta2 = (glm::dot(glm::cross(aMinusC, qMinusC), triangle->normalA)) / denominator;
-	float gamma2 = (glm::dot(glm::cross(bMinusA, qMinusA), triangle->normalA)) / denominator;
-
-	if (beta2 < 0 || gamma2 < 0 || beta2 + gamma2 > 1 || beta2 > 1 || gamma2 > 1)
+	if (fabs(det) < epsilon)
 	{
-		glm::vec3 nullT(INFINITY, 0, 0);
-		return nullT;
+		return glm::vec3(INFINITY, 0.0f, 0.0f);
 	}
 
-	glm::vec3 tBetaGamma2(t, beta, gamma);
+	float invDet = 1.0f / det;
+	glm::vec3 tvec = ray.origin - triangle->vertex0;
 
-	triangle->SetNormal(glm::normalize((alpha2 * triangle->normalA) + (beta2 * triangle->normalB) + (gamma2 * triangle->normalC)));
-	return tBetaGamma2;
+	float beta = glm::dot(tvec, pvec) * invDet;
+	if (beta < 0.0f || beta > 1.0f)
+	{
+		return glm::vec3(INFINITY, 0.0f, 0.0f);
+	}
+
+	glm::vec3 qvec = glm::cross(tvec, e1);
+	float gamma = glm::dot(ray.direction, qvec) * invDet;
+	if (gamma < 0.0f || beta + gamma > 1.0f)
+	{
+		return glm::vec3(INFINITY, 0.0f, 0.0f);
+	}
+
+	float t = glm::dot(e2, qvec) * invDet;
+	if (t <= epsilon)
+	{
+		return glm::vec3(INFINITY, 0.0f, 0.0f);
+	}
+
+	glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
+	triangle->SetNormal(faceNormal);
+
+	return glm::vec3(t, beta, gamma);
 }
 
 float CheckSphereIntersection(Sphere* sphere, Ray& ray)
@@ -199,7 +195,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 			hitObjectAmbient = tri->ambient;
 			hitObjectShininess = tri->shininess;
 			hitObjectIsSphere = false;
-			hitObjectNormal = glm::normalize((alpha2 * tri->normalA) + (beta2 * tri->normalB) + (gamma2 * tri->normalC));
+			hitObjectNormal = tri->normal;
 			intersectionPoint = ray.origin + ray.direction * tTriangle;
 			minDist = tTriangle;
 			didHit = true;
@@ -242,7 +238,6 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		}
 		else
 		{
-			intersectionPoint = glm::vec4(intersectionPoint, 1.0f);
 
 			return new Intersection(
 				true,
@@ -281,8 +276,6 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 	if (intersection->didHit)
 	{
-		return intersection->hitObjectAmbient;
-		finalCol += intersection->hitObjectAmbient * 0.1f;
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
@@ -392,12 +385,11 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 					delete shadowIntersection;
 					continue;
 				}
-
 			}
 
 			finalCol += lambert + phong;
 		}
-		return finalCol;
+		return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
 	}
 	else
 	{
@@ -467,7 +459,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene3.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-diffuse.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -686,6 +678,7 @@ int main() {
 			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
+			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
 		}
 
 	}

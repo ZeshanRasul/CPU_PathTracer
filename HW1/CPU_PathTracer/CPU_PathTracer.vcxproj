@@ -151,6 +151,13 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png" />
+    <Image Include="scene4-ambient.png" />
+    <Image Include="scene4-diffuse.png" />
+    <Image Include="scene4-emission.png" />
+    <Image Include="scene4-specular.png" />
+    <Image Include="scene5.png" />
+    <Image Include="scene6.png" />
+    <Image Include="scene7.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

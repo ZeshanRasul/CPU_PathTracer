@@ -61,5 +61,26 @@
     <Image Include="outfile.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="scene4-ambient.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene4-diffuse.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene4-emission.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene4-specular.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene5.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene6.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene7.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
