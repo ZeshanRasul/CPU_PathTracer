@@ -1,14 +1,14 @@
 #include "Freeimage.h"
 #include <string>
 #include <cstdlib> 
+#include <iostream>
+#include <fstream>
 
 #include "Camera.h"
 #include "Ray.h"
 #include "Intersection.h"
 #include "Scene.h"
 
-const int IMAGE_WIDTH = 1920;
-const int IMAGE_HEIGHT = 1080;
 int bounces = 0;
 
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
@@ -387,6 +387,61 @@ int main() {
 	std::string fname = "outfile.png";
 	FreeImage_Initialise();
 
+	char text[1000];
+	std::ifstream inFile;
+	inFile.open("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene1.test");
+
+	if (!inFile) {
+		std::cerr << "Unable to open file scene1.txt";
+		exit(1);   // call system to stop
+	}
+
+	char width[5];
+	char height[5];
+	//inFile.getline(text, 1000, '\n');
+	//std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 5, ' ');
+	std::cout << text << std::endl;
+	inFile.getline(width, 5, ' ');
+	inFile.getline(height, 5, '\n');
+	std::cout << "Width: " << width << " Height: " << height << std::endl;
+	const int IMAGE_WIDTH = strtol(width, nullptr, 10);
+	const int IMAGE_HEIGHT = strtol(height, nullptr, 10);
+
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+	inFile.getline(text, 1000, '\n');
+	std::cout << text << std::endl;
+
+
+	char camera[7];
+	inFile.getline(camera, 7, ' ');
+
+	char eyeX[4];
+	inFile.getline(eyeX, 4, ' ');
+
+	char eyeY[4];
+	inFile.getline(eyeY, 4, ' ');
+
+	char eyeZ[4];
+	inFile.getline(eyeZ, 4, ' ');
+
 	BYTE* pixels = (BYTE*)malloc(sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 	if (!pixels) {
 		FreeImage_DeInitialise();
@@ -394,7 +449,15 @@ int main() {
 	}
 	memset(pixels, 0, sizeof(BYTE) * IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-	glm::vec3 eyePos(0, 0, 175);
+	char* endptr;
+	int eyex = std::stoi(eyeX, 0, 10);
+	int eyey = std::stoi(eyeY, 0, 10);
+	int eyez = std::stoi(eyeZ, 0, 10);
+
+	glm::vec3 eyePos;
+	eyePos[0] = eyex;
+	eyePos[1] = eyey;
+	eyePos[2] = eyez;
 	glm::vec3 center(0, 0, -1);
 	glm::vec3 up(0, 1, 0);
 
@@ -462,25 +525,29 @@ int main() {
 	Triangle* tri10 = new Triangle(vert4, vert7, vert6, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 	Triangle* tri11 = new Triangle(vert4, vert6, vert5, glm::vec3(0.0f, 1.0f, 1.f), glm::vec3(0.3, 0.3, 0.3f), glm::vec3(0.15f, 0.05f, 0.0f), 1.00f, glm::vec3(0.3f, 0.3f, 0.3f));
 
+	glm::vec3 a = glm::vec3(0, 0, 0);
+	glm::vec3 b = glm::vec3(1, 0, 0);
+	glm::vec3 c = glm::vec3(0, 0, 1);
+	glm::vec3 d = glm::vec3(1, 0, 1);
 
 	//// -Y
 	//scene->AddTriangle(tri0);
 	//scene->AddTriangle(tri1);
 
 //	 +Y
-	scene->AddTriangle(tri2);
-	scene->AddTriangle(tri3);
+	//scene->AddTriangle(tri2);
+	//scene->AddTriangle(tri3);
 
-	// +X
-	scene->AddTriangle(tri4);
-	scene->AddTriangle(tri5);
+	//// +X
+	//scene->AddTriangle(tri4);
+	//scene->AddTriangle(tri5);
 
-	// -X
-	scene->AddTriangle(tri6);
-	scene->AddTriangle(tri7);
-	// -Z
-	scene->AddTriangle(tri8);
-	scene->AddTriangle(tri9);
+	//// -X
+	//scene->AddTriangle(tri6);
+	//scene->AddTriangle(tri7);
+	//// -Z
+	//scene->AddTriangle(tri8);
+	//scene->AddTriangle(tri9);
 	scene->AddSphere(new Sphere(glm::vec3(20.0f, -10.0f, 0.0f), 5.0f, glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.5, 0.5, 0.5), 0.0f, glm::vec3(0.5, 0.5, 0.5), 1.0f, &checker));
 
 
