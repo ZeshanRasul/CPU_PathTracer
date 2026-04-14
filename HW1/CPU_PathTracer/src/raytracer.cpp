@@ -294,7 +294,7 @@ glm::vec3 FindColor(const Ray& ray, Scene* scene, Camera* camera, int depth)
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
-			glm::vec3 normalizedLightDirection = glm::normalize(-dirLight->direction);
+			glm::vec3 normalizedLightDirection = glm::normalize(dirLight->direction);
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
 
 			if (intersection->hitHasTexture)
@@ -350,18 +350,25 @@ glm::vec3 FindColor(const Ray& ray, Scene* scene, Camera* camera, int depth)
 			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
 			if (shadowIntersection->didHit)
 			{
-				/*float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
+				float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
+				delete shadowIntersection;
+
 				if (distanceToOccluder < distanceToLight)
 				{
-					delete shadowIntersection;
 					continue;
-				}*/
-				continue;
+				}
+			}
+			else
+			{
+				delete shadowIntersection;
 			}
 
 			finalCol += (lambert + phong) * attenuation;
 		}
-
+		if (depth >= maxDepth)
+		{
+			return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
+		}
 	
 		glm::vec3 reflectDir = glm::reflect(ray.direction, intersection->hitObjectNormal);
 		glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
@@ -372,13 +379,10 @@ glm::vec3 FindColor(const Ray& ray, Scene* scene, Camera* camera, int depth)
 		//if (glm::length(refractDir) > 0.0f)
 		//{
 		//	Ray refractRay(origin, glm::normalize(refractDir));
-		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * intersection->hitObjectSpecular;
+		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * 0.5f * intersection->hitObjectSpecular;
 		//}
 
-		if (depth >= maxDepth)
-		{
-			return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
-		}
+	
 
 		return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
 	}
@@ -450,7 +454,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-specular.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene5.test");
 	std::string line;
 
 	while (std::getline(file, line))
