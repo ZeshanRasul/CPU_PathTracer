@@ -408,7 +408,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 struct Vertex
 {
-	glm::vec4 position;
+	glm::vec3 position;
 };
 
 //struct Tri
@@ -582,7 +582,7 @@ int main() {
 			std::cout << line << std::endl;
 			float vertX, vertY, vertZ;
 			iss >> vertX >> vertY >> vertZ;
-			verts.push_back(Vertex{ transformStack.back() * glm::vec4(vertX, vertY, vertZ, 1.0f) });
+			verts.push_back(Vertex{ glm::vec3(vertX, vertY, vertZ) });
 		}
 
 		if (cmd == "vertexnormal")
@@ -598,7 +598,7 @@ int main() {
 			/*	v0 = v0 - 1;
 				v1 = v1 - 1;
 				v2 = v2 - 1;*/
-			scene->AddTriangle(new Triangle(verts[v0].position, verts[v1].position, verts[v2].position, glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(ambientR, ambientG, ambientB), NULL));
 		}
 
 		if (cmd == "trinormal")
