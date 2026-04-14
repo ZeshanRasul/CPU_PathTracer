@@ -4,15 +4,18 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "Camera.h"
 #include "Ray.h"
 #include "Intersection.h"
 #include "Scene.h"
 
+
 int bounces = 0;
 int maxDepth;
-
+glm::mat4 modelStack;
+	
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
 	glm::vec3 w = glm::normalize(cam.getEyePos() - cam.getCenter());
@@ -27,7 +30,8 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 	float beta = tan(fovY * 0.5f) * (1.0f - (2.0f * (static_cast<float>(j) + 0.5f) / static_cast<float>(height)));
 
 	glm::vec3 direction = glm::normalize(alpha * u + beta * v - w);
-	return Ray(cam.getEyePos(), direction);
+	direction = glm::vec4(direction, 0.0f);
+	return Ray(glm::vec4(cam.getEyePos(), 1.0f), direction);
 }
 
 glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
@@ -200,6 +204,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		if (hitObjectIsSphere)
 		{
 			intersectionPoint = ray.origin + ray.direction * tSphere;
+			intersectionPoint = glm::vec4(intersectionPoint, 1.0f);
 			hitObjectNormal = glm::normalize(intersectionPoint - hitSphere->center);
 
 			return new Intersection(
@@ -218,6 +223,8 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		}
 		else
 		{
+			intersectionPoint = glm::vec4(intersectionPoint, 1.0f);
+
 			return new Intersection(
 				true,
 				intersectionPoint,
@@ -255,7 +262,7 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 
 	if (intersection->didHit)
 	{
-		return intersection->hitObjectDiffuse;
+		return intersection->hitObjectAmbient;
 		finalCol += intersection->hitObjectAmbient * 0.1f;
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
@@ -416,18 +423,10 @@ std::vector<Vertex> verts;
 //std::vector<Tri> triangles;
 //std::vector<Sphere> spheres;
 
+
 int main() {
 	std::string fname = "outfile.png";
 	FreeImage_Initialise();
-
-	char text[1000];
-	std::ifstream inFile;
-	inFile.open("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene2.test");
-
-	if (!inFile) {
-		std::cerr << "Unable to open file scene2.test";
-		exit(1);   // call system to stop
-	}
 
 	glm::vec3 eyePos, center, up;
 	int width;
@@ -445,7 +444,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene2.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene3.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -466,6 +465,34 @@ int main() {
 		std::istringstream iss(line);
 		std::string cmd;
 		iss >> cmd;
+
+		if (cmd == "popTransform")
+		{
+			std::cout << line << std::endl;
+			modelStack = glm::mat4(1.0f);
+		}
+
+		if (cmd == "pushTransform")
+		{
+			std::cout << line << std::endl;
+			modelStack = glm::mat4(1.0f);
+		}
+
+		if (cmd == "translate")
+		{
+			std::cout << line << std::endl;
+			float x, y, z;
+			iss >> x >> y >> z;
+			modelStack = glm::translate(modelStack, glm::vec3(x, y, z));
+		}
+
+		if (cmd == "scale")
+		{
+			std::cout << line << std::endl;
+			float x, y, z;
+			iss >> x >> y >> z;
+			modelStack = glm::scale(modelStack, glm::vec3(x, y, z));
+		}
 
 		if (cmd == "size")
 		{
@@ -498,7 +525,7 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(0.0f, 0.0f, 0.0f), 1.0f));
+			scene->AddSphere(new Sphere(modelStack * glm::vec4(sphereX, sphereY, sphereZ, 1.0f), sphereRadius, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f));
 		}
 
 		if (cmd == "maxverts")
@@ -518,7 +545,7 @@ int main() {
 			std::cout << line << std::endl;
 			float vertX, vertY, vertZ;
 			iss >> vertX >> vertY >> vertZ;
-			verts.push_back(Vertex{ glm::vec3(vertX, vertY, vertZ) });
+			verts.push_back(Vertex{ modelStack * glm::vec4(vertX, vertY, vertZ, 1.0f) });
 		}
 
 		if (cmd == "vertexnormal")
@@ -531,10 +558,10 @@ int main() {
 			std::cout << line << std::endl;
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
-		/*	v0 = v0 - 1;
-			v1 = v1 - 1;
-			v2 = v2 - 1;*/
-			scene->AddTriangle(new Triangle(verts[v0].position, verts[v1].position, verts[v2].position, glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(0.1), NULL));
+			/*	v0 = v0 - 1;
+				v1 = v1 - 1;
+				v2 = v2 - 1;*/
+			scene->AddTriangle(new Triangle(verts[v0].position, verts[v1].position, verts[v2].position, glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(ambientR, ambientG, ambientB), NULL));
 		}
 
 		if (cmd == "trinormal")
