@@ -455,6 +455,10 @@ int main() {
 	int upX, upY, upZ;
 	float fovY;
 	float ambientR, ambientG, ambientB;
+	float diffuseR, diffuseG, diffuseB;
+	float specularR, specularG, specularB;
+	float shininess;
+	float emissionR, emissionG, emissionB;
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
 	float sphereX, sphereY, sphereZ, sphereRadius;
@@ -562,7 +566,7 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
+			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
 		}
 
 		if (cmd == "maxverts")
@@ -598,7 +602,7 @@ int main() {
 			/*	v0 = v0 - 1;
 				v1 = v1 - 1;
 				v2 = v2 - 1;*/
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0), glm::vec3(0.0), 32.0f, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 		}
 
 		if (cmd == "trinormal")
@@ -610,11 +614,15 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> dirLightX >> dirLightY >> dirLightZ >> dirLightR >> dirLightG >> dirLightB;
+			scene->AddDirectionalLight(new DirectionalLight(glm::vec3(dirLightX, dirLightY, dirLightZ), glm::vec3(dirLightR, dirLightG, dirLightB)));
 		}
 
 		if (cmd == "point")
 		{
 			std::cout << line << std::endl;
+			float x, y, z, r, g, b;
+			iss >> x >> y >> z >> r >> g >> b;
+			scene->AddPointLight(new PointLight(glm::vec3(x, y, z), glm::vec3(r, g, b)));
 		}
 
 		if (cmd == "attenuation const linear quadratic")
@@ -625,6 +633,30 @@ int main() {
 		if (cmd == "ambient")
 		{
 			iss >> ambientR >> ambientG >> ambientB;
+		}
+
+		if (cmd == "diffuse")
+		{
+			std::cout << line << std::endl;
+			iss >> diffuseR >> diffuseG >> diffuseB;
+		}
+
+		if (cmd == "specular")
+		{
+			std::cout << line << std::endl;
+			iss >> specularR >> specularG >> specularB;
+		}
+
+		if (cmd == "shininess")
+		{
+			std::cout << line << std::endl;
+			iss >> shininess;
+		}
+
+		if (cmd == "emission")
+		{
+			std::cout << line << std::endl;
+			iss >> emissionR >> emissionG >> emissionB;
 		}
 	}
 
