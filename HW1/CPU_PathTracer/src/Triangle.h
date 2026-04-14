@@ -27,7 +27,7 @@ public:
 	{
 	}
 
-	void SetNormal(glm::vec3 newNormal)
+	void SetNormal(const glm::vec3& newNormal)
 	{
 		normal = newNormal;
 	}

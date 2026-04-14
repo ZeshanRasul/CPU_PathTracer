@@ -56,6 +56,15 @@
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene1.txt" />
     <None Include="Release\scene1.test" />
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
+    <None Include="Release\scene2.test" />
+    <None Include="Release\scene3.test" />
+    <None Include="Release\scene4-ambient.test" />
+    <None Include="Release\scene4-diffuse.test" />
+    <None Include="Release\scene4-emission.test" />
+    <None Include="Release\scene4-specular.test" />
+    <None Include="Release\scene5.test" />
+    <None Include="Release\scene6.test" />
+    <None Include="Release\scene7.test" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png">
@@ -70,9 +79,6 @@
     <Image Include="scene4-emission.png">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="scene4-specular.png">
-      <Filter>Resource Files</Filter>
-    </Image>
     <Image Include="scene5.png">
       <Filter>Resource Files</Filter>
     </Image>
@@ -80,6 +86,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="scene7.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="scene4-specular.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

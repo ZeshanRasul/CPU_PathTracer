@@ -13,7 +13,7 @@
 
 
 int bounces = 0;
-int maxDepth;
+int maxDepth = 5;
 glm::mat4 modelStack = glm::mat4(1.0f);
 glm::mat4 prevMatrix = glm::mat4(1.0f);
 glm::mat4 invModelStack = glm::mat4(1.0f);
@@ -21,7 +21,9 @@ glm::mat4 prevInvMatrix = glm::mat4(1.0f);
 glm::mat4 normalMatrix = glm::mat4(1.0f);
 glm::mat4 scaleMatrix = glm::mat4(1.0f);
 std::vector<glm::mat4> transformStack = { glm::mat4(1.0f) };
-
+float constant = 1;
+float linear = 0;
+float quadratic = 0;
 
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
@@ -78,6 +80,11 @@ glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
 	}
 
 	glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
+
+	if (glm::dot(faceNormal, ray.direction) > 0.0f)
+	{
+		faceNormal = -faceNormal;
+	}
 	triangle->SetNormal(faceNormal);
 
 	return glm::vec3(t, beta, gamma);
@@ -270,20 +277,25 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		NULL);
 }
 
-glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
+glm::vec3 FindColor(const Ray& ray, Scene* scene, Camera* camera, int depth)
 {
+	Intersection* intersection = FindIntersection(scene, const_cast<Ray&>(ray));
 	glm::vec3 finalCol = glm::vec3(0.0f);
+	glm::vec3 eyeDir = glm::normalize(-ray.direction);
+
+	if (!intersection->didHit)
+	{
+		delete intersection;
+		return glm::vec3(0.0f);
+	}
 
 	if (intersection->didHit)
 	{
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
-			glm::vec3 eyeDir = glm::normalize(camera->getEyePos() - intersection->intersectionPoint);
 			glm::vec3 normalizedLightDirection = glm::normalize(-dirLight->direction);
-
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
-			// No attenuation for now
 
 			if (intersection->hitHasTexture)
 			{
@@ -294,28 +306,8 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
+			bounces = 0;
 
-			for (int i = 0; i < maxDepth; i++)
-			{
-				bounces++;
-				if (bounces >= maxDepth)
-				{
-					break;
-				}
-				glm::vec3 reflectDir = glm::reflect(-normalizedLightDirection, intersection->hitObjectNormal);
-				glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
-				Ray mirrorRay(origin, reflectDir);
-				Intersection* mirrorIntersection = FindIntersection(scene, mirrorRay);
-				finalCol += FindColor(mirrorIntersection, scene, camera) * intersection->hitObjectSpecular;
-
-				if (intersection->hitObjectIOR > 1.0f)
-				{
-					glm::vec3 refractDir = glm::refract(-normalizedLightDirection, intersection->hitObjectNormal, 1.0f / intersection->hitObjectIOR);
-					Ray refractRay(origin, refractDir);
-					Intersection* refractIntersection = FindIntersection(scene, refractRay);
-					finalCol += FindColor(refractIntersection, scene, camera) * intersection->hitObjectSpecular;
-				}
-			}
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
@@ -337,41 +329,20 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 		{
 			glm::vec3 lightDir = pointLight->position - intersection->intersectionPoint;
 			float distanceToLight = glm::length(lightDir);
-			glm::vec3 eyeDir = glm::normalize(camera->getEyePos() - intersection->intersectionPoint);
 			glm::vec3 normalizedLightDirection = glm::normalize(lightDir);
 			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
-			// No attenuation for now
 			if (intersection->hitHasTexture)
 			{
 				intersection->hitObjectDiffuse = intersection->hitObjectTexture->value(0, 0, intersection->intersectionPoint);
 			}
+
+			float attenuation = 1.0f / (constant + linear * distanceToLight + quadratic * (distanceToLight * distanceToLight));
+
 			glm::vec3 lambert = intersection->hitObjectDiffuse * pointLight->colour * std::max(nDotL, 0.0f);
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
 			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
 			glm::vec3 phong = intersection->hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
 
-			for (int i = 0; i < maxDepth; i++)
-			{
-				bounces++;
-
-				if (bounces >= maxDepth)
-				{
-					break;
-				}
-				glm::vec3 reflectDir = glm::reflect(-normalizedLightDirection, intersection->hitObjectNormal);
-				glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
-				Ray mirrorRay(origin, reflectDir);
-				Intersection* mirrorIntersection = FindIntersection(scene, mirrorRay);
-				finalCol += FindColor(mirrorIntersection, scene, camera) * intersection->hitObjectSpecular;
-
-				if (intersection->hitObjectIOR > 1.0f)
-				{
-					glm::vec3 refractDir = glm::refract(-normalizedLightDirection, intersection->hitObjectNormal, 1.0f / intersection->hitObjectIOR);
-					Ray refractRay(origin, refractDir);
-					Intersection* refractIntersection = FindIntersection(scene, refractRay);
-					finalCol += FindColor(refractIntersection, scene, camera) * intersection->hitObjectSpecular;
-				}
-			}
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
@@ -379,16 +350,36 @@ glm::vec3 FindColor(Intersection* intersection, Scene* scene, Camera* camera)
 			Intersection* shadowIntersection = FindIntersection(scene, shadowRay);
 			if (shadowIntersection->didHit)
 			{
-				float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
+				/*float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
 				if (distanceToOccluder < distanceToLight)
 				{
 					delete shadowIntersection;
 					continue;
-				}
+				}*/
+				continue;
 			}
 
-			finalCol += lambert + phong;
+			finalCol += (lambert + phong) * attenuation;
 		}
+
+	
+		glm::vec3 reflectDir = glm::reflect(ray.direction, intersection->hitObjectNormal);
+		glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+		Ray mirrorRay(origin, reflectDir);
+		finalCol += FindColor(mirrorRay, scene, camera, depth + 1) * intersection->hitObjectSpecular;
+
+		//glm::vec3 refractDir = glm::refract(ray.direction, intersection->hitObjectNormal, 1.0f / intersection->hitObjectIOR);
+		//if (glm::length(refractDir) > 0.0f)
+		//{
+		//	Ray refractRay(origin, glm::normalize(refractDir));
+		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * intersection->hitObjectSpecular;
+		//}
+
+		if (depth >= maxDepth)
+		{
+			return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
+		}
+
 		return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
 	}
 	else
@@ -459,7 +450,7 @@ int main() {
 	Scene* scene = new Scene();
 
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene7.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-specular.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -535,7 +526,7 @@ int main() {
 			height = h;
 		}
 
-		if (cmd == "maxDepth")
+		if (cmd == "maxdepth")
 		{
 			int d;
 			iss >> d;
@@ -617,9 +608,10 @@ int main() {
 			scene->AddPointLight(new PointLight(glm::vec3(x, y, z), glm::vec3(r, g, b)));
 		}
 
-		if (cmd == "attenuation const linear quadratic")
+		if (cmd == "attenuation")
 		{
 			std::cout << line << std::endl;
+			iss >> constant >> linear >> quadratic;
 		}
 
 		if (cmd == "ambient")
@@ -670,10 +662,10 @@ int main() {
 	{
 		for (int x = 0; x < IMAGE_WIDTH; x++)
 		{
-			bounces = 0;
+			int depth = 0;
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
 			Intersection* intersection = FindIntersection(scene, ray);
-			col = FindColor(intersection, scene, &cam);
+			col = FindColor(ray, scene, &cam, depth);
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
