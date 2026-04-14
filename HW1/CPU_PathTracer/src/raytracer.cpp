@@ -20,7 +20,9 @@ glm::mat4 invModelStack = glm::mat4(1.0f);
 glm::mat4 prevInvMatrix = glm::mat4(1.0f);
 glm::mat4 normalMatrix = glm::mat4(1.0f);
 glm::mat4 scaleMatrix = glm::mat4(1.0f);
-	
+std::vector<glm::mat4> transformStack = { glm::mat4(1.0f) };
+
+
 Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
 {
 	glm::vec3 w = glm::normalize(cam.getEyePos() - cam.getCenter());
@@ -158,7 +160,9 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 
 	for (Sphere* sphere : sceneSpheres)
 	{
-		t = CheckSphereIntersection(sphere, ray);
+		Ray* transformedRay = new Ray(glm::inverse(sphere->transform) * glm::vec4(ray.origin, 1.0f), glm::inverse(sphere->transform) * glm::vec4(ray.direction, 0.0f));
+
+		t = CheckSphereIntersection(sphere, *transformedRay);
 		if (t < minDist && t > 0)
 		{
 			minDist = t;
@@ -209,7 +213,7 @@ Intersection* FindIntersection(Scene* scene, Ray& ray)
 		if (hitObjectIsSphere)
 		{
 			intersectionPoint = ray.origin + ray.direction * tSphere;
-			intersectionPoint = glm::vec4(intersectionPoint, 1.0f);
+			intersectionPoint = hitSphere->transform * glm::vec4(intersectionPoint, 1.0f);
 			hitObjectNormal = glm::normalize(intersectionPoint - hitSphere->center);
 
 			return new Intersection(
@@ -475,11 +479,17 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			modelStack = prevMatrix;
+
+			if (transformStack.size() > 0)
+			{
+				transformStack.pop_back();
+			}
 		}
 
 		if (cmd == "pushTransform")
 		{
 			std::cout << line << std::endl;
+			transformStack.push_back(transformStack.back());
 		}
 
 		if (cmd == "translate")
@@ -487,8 +497,7 @@ int main() {
 			std::cout << line << std::endl;
 			float x, y, z;
 			iss >> x >> y >> z;
-			prevMatrix = modelStack;
-			modelStack = glm::translate(modelStack, glm::vec3(x, y, z));
+			transformStack.back() = glm::translate(transformStack.back(), glm::vec3(x, y, z));
 		}
 
 		if (cmd == "scale")
@@ -496,9 +505,20 @@ int main() {
 			std::cout << line << std::endl;
 			float x, y, z;
 			iss >> x >> y >> z;
-			prevMatrix = modelStack;
-			modelStack = glm::scale(modelStack, glm::vec3(x, y, z));
+			transformStack.back() = glm::scale(transformStack.back(), glm::vec3(x, y, z));
 			scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(x, y, z));
+		}
+
+		if (cmd == "rotate")
+		{
+			std::cout << line << std::endl;
+			float x, y, z, angle;
+			iss >> x >> y >> z >> angle;
+
+			glm::vec3 axis(x, y, z);
+			float angleRadians = glm::radians(angle);
+
+			transformStack.back() = glm::rotate(transformStack.back(), angleRadians, axis);
 		}
 
 		if (cmd == "size")
@@ -532,7 +552,7 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(modelStack * glm::vec4(sphereX, sphereY, sphereZ, 1.0f), scaleMatrix * glm::vec4(sphereRadius, sphereRadius, sphereRadius, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f));
+			scene->AddSphere(new Sphere(glm::vec4(sphereX, sphereY, sphereZ, 1.0f), sphereRadius, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 32.0f, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
 		}
 
 		if (cmd == "maxverts")
@@ -552,7 +572,7 @@ int main() {
 			std::cout << line << std::endl;
 			float vertX, vertY, vertZ;
 			iss >> vertX >> vertY >> vertZ;
-			verts.push_back(Vertex{ modelStack * glm::vec4(vertX, vertY, vertZ, 1.0f) });
+			verts.push_back(Vertex{ transformStack.back() * glm::vec4(vertX, vertY, vertZ, 1.0f) });
 		}
 
 		if (cmd == "vertexnormal")
