@@ -16,7 +16,6 @@ public:
 		glm::vec3 center,
 		float hitObjectIOR,
 		float tHit,
-		int sphereIdx = -1,
 		bool hitHasTexture = false,
 		texture* hitObjectTexture = nullptr
 		)
@@ -32,7 +31,6 @@ public:
 		center(center),
 		hitObjectIOR(hitObjectIOR),
 		t(tHit),
-		sphereIndex(sphereIdx),
 		hitHasTexture(hitHasTexture),
 		hitObjectTexture(hitObjectTexture)
 	{
@@ -46,6 +44,7 @@ public:
 	{
 	}
 
+public:
 	bool didHit = false;
 	glm::vec3 intersectionPoint;
 	glm::vec3 hitObjectDiffuse;
@@ -64,4 +63,5 @@ public:
 	texture* hitObjectTexture = NULL;
 	float t;
 	int sphereIndex = -1;
+	int triangleIndex = -1;
 };
