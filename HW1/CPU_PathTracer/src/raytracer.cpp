@@ -277,22 +277,28 @@ bool TraverseUniformGrid(
 				glm::vec3(invTransform * glm::vec4(ray.origin, 1.0f)),
 				glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
 
-			
+
 			Intersection tempHit;
 			tempHit.t = bestT;
 
-			float sphereT = CheckSphereIntersection(spheres[sphereIndex], transformedRay);
+			float sphereTLocal = CheckSphereIntersection(spheres[sphereIndex], transformedRay);
 
-			if (sphereT < bestT)
+			if (sphereTLocal < INFINITY)
 			{
-				bestT = sphereT;
-				tempHit.sphereIndex = sphereIndex;
-				closestHit = tempHit;
-				hitAnything = true;
-			}
-			
-		}
+				glm::vec3 localHitPoint = transformedRay.origin + transformedRay.direction * sphereTLocal;
+				glm::vec3 worldHitPoint = glm::vec3(spheres[sphereIndex]->transform * glm::vec4(localHitPoint, 1.0f));
+				float worldT = glm::length(worldHitPoint - ray.origin);
 
+				if (worldT < bestT)
+				{
+					bestT = worldT;
+					tempHit.t = worldT;
+					tempHit.sphereIndex = sphereIndex;
+					closestHit = tempHit;
+					hitAnything = true;
+				}
+			}
+		}
 		float nextCrossing = std::min(tMax.x, std::min(tMax.y, tMax.z));
 
 		// Early out: nearest hit is before the next cell boundary
@@ -460,7 +466,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 
 	Intersection* intersection = new Intersection();
 	didHit = TraverseUniformGrid(*grid, scene->GetSpheresRef(), ray, *intersection);
-	
+
 
 
 
@@ -539,7 +545,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 			glm::mat3 normalMat = glm::transpose(glm::inverse(glm::mat3(hitSphere->transform)));
 			hitObjectNormal = glm::normalize(normalMat * localNormal);
 
-				return new Intersection(
+			return new Intersection(
 				true,
 				intersectionPoint,
 				hitObjectDiffuse,
@@ -550,7 +556,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				hitObjectNormal,
 				glm::vec3(hitSphere->transform * glm::vec4(hitSphere->center, 1.0f)),
 				hitObjectIOR,
-				t,
+				minDist,
 				hitHasTexture,
 				hitObjectTexture
 			);
@@ -569,7 +575,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				hitObjectNormal,
 				glm::vec3(0, 0, 0),
 				hitObjectIOR,
-				t,
+				minDist,
 				hitHasTexture,
 				NULL
 			);
@@ -587,7 +593,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 		hitObjectNormal,
 		glm::vec3(0, 0, 0),
 		1.0f,
-		t,
+		minDist,
 		hitHasTexture,
 		NULL
 	);
@@ -685,7 +691,7 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 		{
 			return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
 		}
-	
+
 		glm::vec3 reflectDir = glm::reflect(ray.direction, intersection->hitObjectNormal);
 		glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
 		Ray mirrorRay(origin, reflectDir);
@@ -698,7 +704,7 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * 0.5f * intersection->hitObjectSpecular;
 		//}
 
-	
+
 
 		return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
 	}
@@ -770,7 +776,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-diffuse.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene4-specular.test");
 	std::string line;
 
 	while (std::getline(file, line))
