@@ -18,6 +18,11 @@ public:
 		return spheres;
 	}
 
+	std::vector<Sphere*>& GetSpheresRef()
+	{
+		return spheres;
+	}
+
 	void AddTriangle(Triangle* tri)
 	{
 		triangles.push_back(tri);

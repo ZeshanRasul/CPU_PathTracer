@@ -15,9 +15,11 @@ public:
 		glm::vec3 hitObjectNormal,
 		glm::vec3 center,
 		float hitObjectIOR,
+		float tHit,
+		int sphereIdx = -1,
 		bool hitHasTexture = false,
-		texture* hitObjectTexture = NULL
-	)
+		texture* hitObjectTexture = nullptr
+		)
 		:
 		didHit(didHit),
 		intersectionPoint(intersectionPoint),
@@ -29,6 +31,8 @@ public:
 		hitObjectNormal(hitObjectNormal),
 		center(center),
 		hitObjectIOR(hitObjectIOR),
+		t(tHit),
+		sphereIndex(sphereIdx),
 		hitHasTexture(hitHasTexture),
 		hitObjectTexture(hitObjectTexture)
 	{
@@ -58,4 +62,6 @@ public:
 	float v;
 	bool hitHasTexture = false;
 	texture* hitObjectTexture = NULL;
+	float t;
+	int sphereIndex = -1;
 };
