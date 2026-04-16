@@ -690,7 +690,7 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 
 	if (intersection->didHit)
 	{
-		return scene->GetQuadLights()[0]->intensity;
+		return intersection->hitObjectDiffuse;
 	}
 
 	return glm::vec3(1.0, 0.0, 1.0);
@@ -933,7 +933,7 @@ int main() {
 			std::cout << line << std::endl;
 			iss >> a.x >> a.y >> a.z >> ab.x >> ab.y >> ab.z >> ac.x >> ac.y >> ac.z >> intensity.r >> intensity.g >> intensity.b;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a, 1.0f), transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a, 1.0f), transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 	//		scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ab + ac, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 
 			scene->AddQuadLight(quadLight);
