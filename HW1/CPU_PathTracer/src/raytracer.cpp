@@ -684,43 +684,25 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 	}
 }
 
+glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera)
+{
+	Intersection* intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+
+	if (intersection->didHit)
+	{
+		return scene->GetQuadLights()[0]->intensity;
+	}
+
+	return glm::vec3(1.0, 0.0, 1.0);
+}
 
 struct Vertex
 {
 	glm::vec3 position;
 };
 
-//struct Tri
-//{
-//	Vertex v0;
-//	Vertex v1;
-//	Vertex v2;
-//
-//	Tri(Vertex v0, Vertex v1, Vertex v2)
-//		:
-//		v0(v0),
-//		v1(v1),
-//		v2(v2)
-//	{
-//	}
-//};
-
-//struct Sphere
-//	{
-//	glm::vec3 center;
-//	float radius;
-//	Sphere(glm::vec3 center, float radius)
-//		:
-//		center(center),
-//		radius(radius)
-//	{
-//	}
-//};
 
 std::vector<Vertex> verts;
-//std::vector<Tri> triangles;
-//std::vector<Sphere> spheres;
-
 
 int main() {
 	std::string fname = "outfile.png";
@@ -735,18 +717,21 @@ int main() {
 	float fovY;
 	float ambientR, ambientG, ambientB;
 	float diffuseR, diffuseG, diffuseB;
-	float specularR, specularG, specularB;
+	float specularR = 0, specularG = 0, specularB = 0;
 	float shininess;
-	float emissionR, emissionG, emissionB;
+	float emissionR = 0, emissionG = 0, emissionB = 0;
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
 	float sphereX, sphereY, sphereZ, sphereRadius;
 	int maxVerts;
 	int maxVertNorms;
+	std::string integrator;
+	glm::vec3 a, ab, ac, intensity;
+
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/scene7.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/analytic.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -878,9 +863,7 @@ int main() {
 			std::cout << line << std::endl;
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
-			/*	v0 = v0 - 1;
-				v1 = v1 - 1;
-				v2 = v2 - 1;*/
+		
 			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 		}
 
@@ -938,6 +921,23 @@ int main() {
 			std::cout << line << std::endl;
 			iss >> emissionR >> emissionG >> emissionB;
 		}
+
+		if (cmd == "integrator")
+		{
+			std::cout << line << std::endl;
+			iss >> integrator;
+		}
+
+		if (cmd == "quadLight")
+		{
+			std::cout << line << std::endl;
+			iss >> a.x >> a.y >> a.z >> ab.x >> ab.y >> ab.z >> ac.x >> ac.y >> ac.z >> intensity.r >> intensity.g >> intensity.b;
+			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a, 1.0f), transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+	//		scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ab + ac, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+
+			scene->AddQuadLight(quadLight);
+		}
 	}
 
 	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
@@ -963,7 +963,14 @@ int main() {
 			int depth = 0;
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
 			Intersection* intersection = FindIntersection(grid, scene, ray);
-			col = FindColor(grid, ray, scene, &cam, depth);
+			if (integrator == "raytracer")
+			{
+				col = FindColor(grid, ray, scene, &cam, depth);
+			}
+			else if (integrator == "analyticdirect")
+			{
+				col = AnalyticFindColor(grid, ray, scene, &cam);
+			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255, 255.0f);

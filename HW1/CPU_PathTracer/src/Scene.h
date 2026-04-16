@@ -5,6 +5,7 @@
 #include "Triangle.h"
 #include "DirectionalLight.h"
 #include "PointLight.h"
+#include "QuadLight.h"
 
 class Scene {
 public:
@@ -53,9 +54,20 @@ public:
 		return pointLights;
 	}
 
+	void AddQuadLight(QuadLight* quadLight)
+	{
+		quadLights.push_back(quadLight);
+	}
+
+	std::vector<QuadLight*> GetQuadLights()
+	{
+		return quadLights;
+	}
+
 private:
 	std::vector<Sphere*> spheres;
 	std::vector<Triangle*> triangles;
 	std::vector<DirectionalLight*> dirLights;
 	std::vector<PointLight*> pointLights;
+	std::vector<QuadLight*> quadLights;
 };

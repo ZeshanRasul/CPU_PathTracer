@@ -139,6 +139,7 @@
     <ClInclude Include="src\DirectionalLight.h" />
     <ClInclude Include="src\Intersection.h" />
     <ClInclude Include="src\PointLight.h" />
+    <ClInclude Include="src\QuadLight.h" />
     <ClInclude Include="src\Ray.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Sphere.h" />
@@ -149,6 +150,13 @@
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene1.txt" />
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
     <None Include=".gitignore" />
+    <None Include="Release\analytic.test" />
+    <None Include="Release\cornell.test" />
+    <None Include="Release\CPU_PathTracer.exe" />
+    <None Include="Release\CPU_PathTracer.pdb" />
+    <None Include="Release\direct3x3.test" />
+    <None Include="Release\direct9.test" />
+    <None Include="Release\dragon.test" />
     <None Include="Release\scene1.test" />
     <None Include="Release\scene2.test" />
     <None Include="Release\scene3.test" />
@@ -159,8 +167,10 @@
     <None Include="Release\scene5.test" />
     <None Include="Release\scene6.test" />
     <None Include="Release\scene7.test" />
+    <None Include="Release\sphere.test" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="analytic.png" />
     <Image Include="outfile.png" />
     <Image Include="scene4-ambient.png" />
     <Image Include="scene4-diffuse.png" />
