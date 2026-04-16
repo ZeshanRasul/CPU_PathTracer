@@ -491,7 +491,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 	glm::vec3 hitObjectNormal = glm::vec3(0, 0, 0);
 	glm::vec3 sphereLocalNormal = glm::vec3(0, 0, 0);
 	glm::vec3 sphereWorldNormal = glm::vec3(0, 0, 0);
-	float hitObjectShininess = 0.0f;
+	float hitObjectShininess = 1.0f;
 	glm::vec3 tBetaGamma2;
 	glm::vec3 intersectionPoint(INFINITY, INFINITY, INFINITY);
 	bool hitObjectIsSphere = false;
@@ -720,11 +720,8 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
-glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples)
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, Intersection* intersection)
 {
-	Intersection* intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
-
-
 
 	if (intersection->didHit)
 	{
@@ -733,7 +730,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			return intersection->hitObjectEmission;
 
 		glm::vec3 directLight = glm::vec3(0.0f);
-		float lightArea = -glm::dot((light->v0 - light->v1), (light->v2 - light->v3));
+		float lightArea = light->ab.length() * light->ac.length();
 		for (int i = 0; i < samples; i++)
 		{
 			float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
@@ -741,21 +738,21 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
 			glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
-			Ray shadowRay(origin, dir);
-			Intersection* shadowIntersection = FindIntersection(grid, scene, shadowRay);
+			Ray sampleRay(origin, dir);
+			Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
 
-			if (shadowIntersection->didHit && !shadowIntersection->isLight)
+			if (!lightSample->isLight)
 				continue;
 
 			glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
 			glm::vec3 normWO = glm::normalize(eyeDir);
 			glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
 
-			glm::vec3 lightNormal = glm::cross(light->ab, light->ac);
+			glm::vec3 lightNormal = glm::cross(-light->ab, -light->ac);
 
 			float reflectVecDotWi = glm::dot(reflectVector, dir);
-			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess * 2) / (float)M_2_PI)) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-			float G = (1.0f / pow(glm::length(intersection->intersectionPoint - sampleLightPoint),2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint))), 0.0f) * glm::dot(lightNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint)));
+			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)M_2_PI)) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
+			float G = (1.0f / pow(glm::length(intersection->intersectionPoint - sampleLightPoint),2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * glm::dot(lightNormal, ((glm::normalize(sampleLightPoint - intersection->intersectionPoint))) / pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f));
 			directLight += brdf * G;
 		}
 
@@ -936,7 +933,7 @@ int main() {
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
 
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), false, NULL));
 		}
 
 		if (cmd == "trinormal")
@@ -1069,7 +1066,7 @@ int main() {
 			}
 			else if (integrator == "direct")
 			{
-				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples);
+				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples, intersection);
 			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
@@ -1077,11 +1074,11 @@ int main() {
 			// - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
 			// - Explicitly cast to BYTE to avoid C4244 warning
 
-			if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
+		/*	if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
 				pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
 				pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
 				pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
-			}
+			}*/
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
 			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
