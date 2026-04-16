@@ -973,7 +973,7 @@ int main() {
 
 	glm::vec3 col = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	for (int y = 0; y < IMAGE_HEIGHT; y++)
+	for (int y = IMAGE_HEIGHT; y > 0; y--)
 	{
 		for (int x = 0; x < IMAGE_WIDTH; x++)
 		{
@@ -996,7 +996,7 @@ int main() {
 		}
 
 	}
-	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
+	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, false);
 
 	FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
 
