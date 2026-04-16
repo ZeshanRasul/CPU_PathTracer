@@ -144,7 +144,7 @@ void BuildUniformGrid(UniformGrid& grid, Scene* scene)
 	grid.bounds = ComputeSceneBounds(scene);
 
 	glm::vec3 extent = grid.bounds.max - grid.bounds.min;
-	const float minExtent = 3; 
+	const float minExtent = 3;
 	for (int axis = 0; axis < 3; ++axis)
 	{
 		if (extent[axis] < minExtent)
@@ -498,7 +498,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 	float hitObjectIOR = 1.0f;
 	bool hitHasTexture = false;
 	texture* hitObjectTexture = NULL;
-
+	bool isAreaLight = false;
 	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
 
 
@@ -538,6 +538,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				glm::vec3(hitSphere->transform * glm::vec4(hitSphere->center, 1.0f)),
 				hitSphere->ior,
 				intersection->t,
+				false,
 				hitSphere->matTexture != NULL,
 				hitSphere->matTexture
 			);
@@ -563,6 +564,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				glm::vec3(0.0f),
 				1.0f,
 				tTriangle,
+				hitTri->isLight,
 				false,
 				NULL
 			);
@@ -581,6 +583,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 		glm::vec3(0, 0, 0),
 		1.0f,
 		minDist,
+		false,
 		hitHasTexture,
 		NULL
 	);
@@ -717,6 +720,52 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples)
+{
+	Intersection* intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+
+
+
+	if (intersection->didHit)
+	{
+		QuadLight* light = scene->GetQuadLights()[0];
+		if (intersection->isLight)
+			return intersection->hitObjectEmission;
+
+		glm::vec3 directLight = glm::vec3(0.0f);
+		float lightArea = -glm::dot((light->v0 - light->v1), (light->v2 - light->v3));
+		for (int i = 0; i <= samples; i++)
+		{
+			float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+			float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+			glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
+			glm::vec3 dir = -glm::normalize(sampleLightPoint - intersection->intersectionPoint);
+			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			Ray shadowRay(origin, dir);
+			Intersection* shadowIntersection = FindIntersection(grid, scene, shadowRay);
+
+			if (shadowIntersection->didHit && !shadowIntersection->isLight)
+				continue;
+
+			glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
+			glm::vec3 normWO = glm::normalize(eyeDir);
+			glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+
+			glm::vec3 lightNormal = glm::cross(light->ab, light->ac);
+
+			float reflectVecDotWi = glm::dot(reflectVector, dir);
+			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess * 2) / (float)M_2_PI)) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
+			float G = (1.0f / glm::length(intersection->intersectionPoint - sampleLightPoint)) * std::max(glm::dot(intersection->hitObjectNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint))), 0.0f) * glm::dot(lightNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint)));
+			directLight += brdf * G;
+		}
+
+		return directLight * light->intensity * (lightArea / (float)samples);
+	}
+
+	return glm::vec3(0.0f, 0.0f, 0.0f);
+}
+
+
 struct Vertex
 {
 	glm::vec3 position;
@@ -744,15 +793,17 @@ int main() {
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
 	float sphereX, sphereY, sphereZ, sphereRadius;
-	int maxVerts;
-	int maxVertNorms;
+	int maxVerts = 0;
+	int maxVertNorms = 0;
+	int lightSamples = 1;
+	bool lightStratify = false;
 	std::string integrator;
 	glm::vec3 a, ab, ac, intensity;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/analytic.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/direct9.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -884,7 +935,7 @@ int main() {
 			std::cout << line << std::endl;
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
-		
+
 			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 		}
 
@@ -958,9 +1009,30 @@ int main() {
 			glm::vec3 v2 = a + ab + ac;
 			glm::vec3 v3 = a + ac;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), true, NULL));
 			scene->AddQuadLight(quadLight);
+		}
+
+		if (cmd == "lightsamples")
+		{
+			std::cout << line << std::endl;
+			iss >> lightSamples;
+		}
+
+		if (cmd == "lightstratify")
+		{
+			std::cout << line << std::endl;
+			std::string stratify;
+			iss >> stratify;
+			if (stratify == "on")
+			{
+				lightStratify = true;
+			}
+			else
+			{
+				lightStratify = false;
+			}
 		}
 	}
 
@@ -995,17 +1067,21 @@ int main() {
 			{
 				col = AnalyticFindColor(grid, ray, scene, &cam);
 			}
+			else if (integrator == "direct")
+			{
+				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples);
+			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
-            // Fix for C6386 and C4244:
-            // - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
-            // - Explicitly cast to BYTE to avoid C4244 warning
+			// Fix for C6386 and C4244:
+			// - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
+			// - Explicitly cast to BYTE to avoid C4244 warning
 
-            if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
-                pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
-                pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
-                pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
-            }
+			if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
+				pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
+				pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
+				pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
+			}
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
 			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;

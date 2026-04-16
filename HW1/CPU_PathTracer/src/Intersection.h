@@ -16,6 +16,7 @@ public:
 		glm::vec3 center,
 		float hitObjectIOR,
 		float tHit,
+		bool isAreaLight,
 		bool hitHasTexture = false,
 		texture* hitObjectTexture = nullptr
 		)
@@ -31,6 +32,7 @@ public:
 		center(center),
 		hitObjectIOR(hitObjectIOR),
 		t(tHit),
+		isLight(isAreaLight),
 		hitHasTexture(hitHasTexture),
 		hitObjectTexture(hitObjectTexture)
 	{
@@ -62,6 +64,7 @@ public:
 	bool hitHasTexture = false;
 	texture* hitObjectTexture = NULL;
 	float t;
+	bool isLight;
 	int sphereIndex = -1;
 	int triangleIndex = -1;
 };
