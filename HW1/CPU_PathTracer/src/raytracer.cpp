@@ -734,12 +734,12 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 		glm::vec3 directLight = glm::vec3(0.0f);
 		float lightArea = -glm::dot((light->v0 - light->v1), (light->v2 - light->v3));
-		for (int i = 0; i <= samples; i++)
+		for (int i = 0; i < samples; i++)
 		{
 			float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 			float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 			glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
-			glm::vec3 dir = -glm::normalize(sampleLightPoint - intersection->intersectionPoint);
+			glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
 			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
 			Ray shadowRay(origin, dir);
 			Intersection* shadowIntersection = FindIntersection(grid, scene, shadowRay);
