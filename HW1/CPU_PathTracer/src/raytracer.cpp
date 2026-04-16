@@ -5,7 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#define _USE_MATH_DEFINES
+#include <math.h>
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/constants.hpp"
 
 #include "Camera.h"
 #include "Ray.h"
@@ -708,7 +711,7 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 		light->GetThetaForAllVertices(intersection->intersectionPoint);
 		light->GetGammaForAllVertices(intersection->intersectionPoint);
 		glm::vec3 phi = light->GetPhi();
-		return (intersection->hitObjectDiffuse / 3.14152f) * (light->intensity) * glm::dot(phi, intersection->hitObjectNormal) + intersection->hitObjectEmission;
+		return (intersection->hitObjectDiffuse / (float)M_PI) * (light->intensity) * glm::dot(phi, intersection->hitObjectNormal) + intersection->hitObjectEmission;
 	}
 
 	return glm::vec3(0.0, 0.0, 0.0);
