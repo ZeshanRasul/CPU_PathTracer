@@ -42,5 +42,5 @@ public:
 	glm::vec3 diffuse, specular, emission, ambient;
 	float shininess;
 	texture* matTexture;
-	bool isLight;
+	bool isLight = false;
 };

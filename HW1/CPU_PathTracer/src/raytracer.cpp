@@ -755,7 +755,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			float reflectVecDotWi = glm::dot(reflectVector, dir);
 			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess * 2) / (float)M_2_PI)) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-			float G = (1.0f / glm::length(intersection->intersectionPoint - sampleLightPoint)) * std::max(glm::dot(intersection->hitObjectNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint))), 0.0f) * glm::dot(lightNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint)));
+			float G = (1.0f / pow(glm::length(intersection->intersectionPoint - sampleLightPoint),2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint))), 0.0f) * glm::dot(lightNormal, (glm::normalize(sampleLightPoint - intersection->intersectionPoint)));
 			directLight += brdf * G;
 		}
 
@@ -788,7 +788,7 @@ int main() {
 	float ambientR = 0, ambientG = 0, ambientB = 0;
 	float diffuseR = 0, diffuseG = 0, diffuseB = 0;
 	float specularR = 0, specularG = 0, specularB = 0;
-	float shininess = 32;
+	float shininess = 0;
 	float emissionR = 0, emissionG = 0, emissionB = 0;
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
