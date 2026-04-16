@@ -704,10 +704,14 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 
 	if (intersection->didHit)
 	{
-		return intersection->hitObjectDiffuse;
+		QuadLight* light = scene->GetQuadLights()[0];
+		light->GetThetaForAllVertices(intersection->intersectionPoint);
+		light->GetGammaForAllVertices(intersection->intersectionPoint);
+		glm::vec3 phi = light->GetPhi();
+		return (intersection->hitObjectDiffuse / 3.14152f) * (light->intensity) * glm::dot(phi, intersection->hitObjectNormal) + intersection->hitObjectEmission;
 	}
 
-	return glm::vec3(1.0, 0.0, 1.0);
+	return glm::vec3(0.0, 0.0, 0.0);
 }
 
 struct Vertex
@@ -951,8 +955,8 @@ int main() {
 			glm::vec3 v2 = a + ab + ac;
 			glm::vec3 v3 = a + ac;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 			scene->AddQuadLight(quadLight);
 		}
 	}
