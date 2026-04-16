@@ -139,6 +139,20 @@ void BuildUniformGrid(UniformGrid& grid, Scene* scene)
 	std::vector<Triangle*> triangles = scene->GetTriangles();
 
 	grid.bounds = ComputeSceneBounds(scene);
+
+	glm::vec3 extent = grid.bounds.max - grid.bounds.min;
+	const float minExtent = 1e2f; 
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		if (extent[axis] < minExtent)
+		{
+			float expand = (minExtent - extent[axis]) * 0.5f;
+			grid.bounds.min[axis] -= expand;
+			grid.bounds.max[axis] += expand;
+		}
+	}
+
+
 	grid.cellSize = (grid.bounds.max - grid.bounds.min) /
 		glm::vec3((float)grid.nx, (float)grid.ny, (float)grid.nz);
 
@@ -715,10 +729,10 @@ int main() {
 	int centerX, centerY, centerZ;
 	int upX, upY, upZ;
 	float fovY;
-	float ambientR, ambientG, ambientB;
-	float diffuseR, diffuseG, diffuseB;
+	float ambientR = 0, ambientG = 0, ambientB = 0;
+	float diffuseR = 0, diffuseG = 0, diffuseB = 0;
 	float specularR = 0, specularG = 0, specularB = 0;
-	float shininess;
+	float shininess = 32;
 	float emissionR = 0, emissionG = 0, emissionB = 0;
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
@@ -932,10 +946,13 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> a.x >> a.y >> a.z >> ab.x >> ab.y >> ab.z >> ac.x >> ac.y >> ac.z >> intensity.r >> intensity.g >> intensity.b;
+			glm::vec3 v0 = a;
+			glm::vec3 v1 = a + ab;
+			glm::vec3 v2 = a + ab + ac;
+			glm::vec3 v3 = a + ac;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a, 1.0f), transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
-	//		scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(a + ab, 1.0f), transformStack.back() * glm::vec4(a + ab + ac, 1.0f), transformStack.back() * glm::vec4(a + ac, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
-
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), NULL));
 			scene->AddQuadLight(quadLight);
 		}
 	}
