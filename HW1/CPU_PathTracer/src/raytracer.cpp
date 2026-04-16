@@ -141,7 +141,7 @@ void BuildUniformGrid(UniformGrid& grid, Scene* scene)
 	grid.bounds = ComputeSceneBounds(scene);
 
 	glm::vec3 extent = grid.bounds.max - grid.bounds.min;
-	const float minExtent = 1e2f; 
+	const float minExtent = 3; 
 	for (int axis = 0; axis < 3; ++axis)
 	{
 		if (extent[axis] < minExtent)
@@ -722,12 +722,12 @@ int main() {
 	std::string fname = "outfile.png";
 	FreeImage_Initialise();
 
-	glm::vec3 eyePos, center, up;
+	glm::vec3 eyePos = glm::vec3(0.0f), center = glm::vec3(0.0f), up = glm::vec3(0.0f);
 	int width;
 	int height;
-	int eyeX, eyeY, eyeZ;
-	int centerX, centerY, centerZ;
-	int upX, upY, upZ;
+	float eyeX, eyeY, eyeZ;
+	float centerX, centerY, centerZ;
+	float upX, upY, upZ;
 	float fovY;
 	float ambientR = 0, ambientG = 0, ambientB = 0;
 	float diffuseR = 0, diffuseG = 0, diffuseB = 0;
@@ -989,14 +989,23 @@ int main() {
 				col = AnalyticFindColor(grid, ray, scene, &cam);
 			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
-			pixels[idx + 0] = std::min(col.b * 255, 255.0f);
-			pixels[idx + 1] = std::min(col.g * 255, 255.0f);
-			pixels[idx + 2] = std::min(col.r * 255, 255.0f);
+			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
+            // Fix for C6386 and C4244:
+            // - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
+            // - Explicitly cast to BYTE to avoid C4244 warning
+
+            if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
+                pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
+                pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
+                pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
+            }
+			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
+			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
 			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
 		}
 
 	}
-	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, false);
+	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
 
 	FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
 
