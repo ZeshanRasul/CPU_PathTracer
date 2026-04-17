@@ -172,6 +172,7 @@
   <ItemGroup>
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
+    <Image Include="direct3x3.png" />
     <Image Include="direct9.png" />
     <Image Include="outfile.png" />
     <Image Include="scene4-ambient.png" />

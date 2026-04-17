@@ -720,44 +720,84 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
-glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, Intersection* intersection)
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, Intersection* intersection)
 {
 
 	if (intersection->didHit)
 	{
-		QuadLight* light = scene->GetQuadLights()[0];
-		if (intersection->isLight)
-			return intersection->hitObjectEmission;
-
 		glm::vec3 directLight = glm::vec3(0.0f);
-		float angleAB = glm::dot(glm::normalize(light->ab), glm::normalize(light->ac));
-		float lightArea = glm::length(glm::cross(light->ab, light->ac)) * glm::sin(glm::acos(angleAB));
-		for (int i = 0; i < samples; i++)
+		for (QuadLight* light : scene->GetQuadLights())
 		{
-			float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
-			float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
-			glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
-			glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
-			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
-			Ray sampleRay(origin, dir);
-			Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
 
-			if (!lightSample->isLight)
-				continue;
+			if (intersection->isLight)
+				return intersection->hitObjectEmission;
 
-			glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
-			glm::vec3 normWO = glm::normalize(eyeDir);
-			glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+			float angleAB = glm::dot(glm::normalize(light->ab), glm::normalize(light->ac));
+			float lightArea = glm::length(glm::cross(light->ab, light->ac)) * glm::sin(glm::acos(angleAB));
+			if (stratify)
+			{
+				int M = sqrt(samples);
 
-			glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
+				for (int i = 0; i < M; i++)
+				{
+					for (int j = 0; j < M; j++)
+					{
+						float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+						float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+						glm::vec3 sampleLightPoint = light->a + ((j + u1) / M) * light->ab + ((i + u2) / M) * light->ac;
+						glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
+						glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
+						Ray sampleRay(origin, dir);
+						Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
 
-			float reflectVecDotWi = glm::dot(reflectVector, dir);
-			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-			float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
-			directLight += brdf * G;
+						if (!lightSample->isLight)
+							continue;
+
+						glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
+						glm::vec3 normWO = glm::normalize(eyeDir);
+						glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+
+						glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
+
+						float reflectVecDotWi = glm::dot(reflectVector, dir);
+						glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
+						float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+						directLight += brdf * G;
+					}
+				}
+			}
+			else
+			{
+
+				for (int i = 0; i < samples; i++)
+				{
+					float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+					float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+					glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
+					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
+					glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
+					Ray sampleRay(origin, dir);
+					Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
+
+					if (!lightSample->isLight)
+						continue;
+
+					glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
+					glm::vec3 normWO = glm::normalize(eyeDir);
+					glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+
+					glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
+
+					float reflectVecDotWi = glm::dot(reflectVector, dir);
+					glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
+					float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+					directLight += brdf * G;
+				}
+			}
+
+			directLight *= light->intensity * (lightArea / (float)samples);
 		}
-
-		return directLight * light->intensity * (lightArea / (float)samples);
+		return directLight;
 	}
 
 	return glm::vec3(0.0f, 0.0f, 0.0f);
@@ -801,7 +841,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/direct9.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/direct3x3.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1067,7 +1107,7 @@ int main() {
 			}
 			else if (integrator == "direct")
 			{
-				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples, intersection);
+				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples, lightStratify, intersection);
 			}
 			int idx = (y * IMAGE_WIDTH + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
