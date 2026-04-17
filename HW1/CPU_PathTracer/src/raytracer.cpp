@@ -144,7 +144,7 @@ void BuildUniformGrid(UniformGrid& grid, Scene* scene)
 	grid.bounds = ComputeSceneBounds(scene);
 
 	glm::vec3 extent = grid.bounds.max - grid.bounds.min;
-	const float minExtent = 3;
+	const float minExtent = 1e-3;
 	for (int axis = 0; axis < 3; ++axis)
 	{
 		if (extent[axis] < minExtent)
@@ -551,8 +551,9 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 			std::vector<Triangle*> sceneTriangles = scene->GetTriangles();
 			Triangle* hitTri = sceneTriangles[intersection.triangleIndex];
 
-			glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
-			float tTriangle = tBetaGamma.x;
+		//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
+		//	glm::vec3 tBetaGamma = intersection.t;
+			float tTriangle = intersection.t;
 			glm::vec3 intersectionPoint = ray.origin + ray.direction * tTriangle;
 
 			return Intersection(
@@ -733,9 +734,12 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				return intersection.hitObjectEmission;
 
 
-			float angleAB = glm::dot(glm::normalize(light->ab), glm::normalize(light->ac));
-			float lightArea = glm::length(glm::cross(light->ab, light->ac)) * glm::sin(glm::acos(angleAB));
-
+			// double-precision intermediate for more robust result
+			glm::dvec3 dab = glm::dvec3(light->ab);
+			glm::dvec3 dac = glm::dvec3(light->ac);
+			double angleABd = glm::clamp(glm::dot(glm::normalize(dab), glm::normalize(dac)), -1.0, 1.0);
+			double lightAread = glm::length(glm::cross(dab, dac)); 
+			float lightArea = static_cast<float>(lightAread);
 			glm::vec3 perLight = glm::vec3(0.0f);
 
 			if (stratify)
@@ -845,7 +849,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornell.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/dragon.test");
 	std::string line;
 
 	while (std::getline(file, line))
