@@ -22,6 +22,14 @@ public:
 		normalA = glm::normalize(glm::cross((vertex2 - vertex0), (vertex1 - vertex0)));
 		normalB = glm::normalize(glm::cross((vertex0 - vertex1), (vertex2 - vertex1)));
 		normalC = glm::normalize(glm::cross((vertex1 - vertex2), (vertex0 - vertex2)));
+
+		glm::vec3 e1 = vertex1 - vertex0;
+		glm::vec3 e2 = vertex2 - vertex0;
+
+		glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
+
+		SetNormal(faceNormal);
+
 	}
 
 	Triangle()

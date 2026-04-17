@@ -174,7 +174,9 @@
     <Image Include="cornell.png" />
     <Image Include="direct3x3.png" />
     <Image Include="direct9.png" />
+    <Image Include="dragon.png" />
     <Image Include="outfile.png" />
+    <Image Include="Release\dragon.png" />
     <Image Include="scene4-ambient.png" />
     <Image Include="scene4-diffuse.png" />
     <Image Include="scene4-emission.png" />

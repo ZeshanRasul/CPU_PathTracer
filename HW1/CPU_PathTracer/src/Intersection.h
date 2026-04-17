@@ -18,7 +18,8 @@ public:
 		float tHit,
 		bool isAreaLight,
 		bool hitHasTexture = false,
-		texture* hitObjectTexture = nullptr
+		texture* hitObjectTexture = nullptr,
+		bool isShadowRay = false
 		)
 		:
 		didHit(didHit),
@@ -34,7 +35,8 @@ public:
 		t(tHit),
 		isLight(isAreaLight),
 		hitHasTexture(hitHasTexture),
-		hitObjectTexture(hitObjectTexture)
+		hitObjectTexture(hitObjectTexture),
+		isShadowRay(isShadowRay)
 	{
 	}
 
@@ -67,4 +69,5 @@ public:
 	bool isLight;
 	int sphereIndex = -1;
 	int triangleIndex = -1;
+	bool isShadowRay = false;
 };

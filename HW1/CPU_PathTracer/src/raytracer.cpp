@@ -56,9 +56,9 @@ struct GridCell
 struct UniformGrid
 {
 	AABB bounds;
-	int nx = 20;
-	int ny = 20;
-	int nz = 20;
+	int nx = 32;
+	int ny = 32;
+	int nz = 32;
 	glm::vec3 cellSize = glm::vec3(1.0f);
 	std::vector<GridCell> cells;
 
@@ -311,13 +311,13 @@ glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
 		return glm::vec3(INFINITY, 0.0f, 0.0f);
 	}
 
-	glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
+	//glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
 
-	if (glm::dot(faceNormal, ray.direction) > 0.0f)
-	{
-		faceNormal = -faceNormal;
-	}
-	triangle->SetNormal(faceNormal);
+	//if (glm::dot(faceNormal, ray.direction) > 0.0f)
+	//{
+	//	faceNormal = -faceNormal;
+	//}
+	//triangle->SetNormal(faceNormal);
 
 	return glm::vec3(t, beta, gamma);
 }
@@ -474,7 +474,7 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 	return Ray(cam.getEyePos(), direction);
 }
 
-Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
+Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool isLightSample)
 {
 	float minDist = INFINITY;
 	Sphere* hitSphere = NULL;
@@ -499,7 +499,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 	bool hitHasTexture = false;
 	texture* hitObjectTexture = NULL;
 	bool isAreaLight = false;
-	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
+	std::vector<Sphere*>& sceneSpheres = scene->GetSpheres();
 
 
 	Intersection intersection;
@@ -509,6 +509,24 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 	{
 		if (intersection.hitObjectIsSphere)
 		{
+			if (isLightSample)
+				return Intersection(
+					false,
+					intersectionPoint,
+					hitObjectDiffuse,
+					hitObjectSpecular,
+					hitObjectEmission,
+					hitObjectShininess,
+					hitObjectAmbient,
+					hitObjectNormal,
+					glm::vec3(0, 0, 0),
+					1.0f,
+					minDist,
+					false,
+					hitHasTexture,
+					NULL
+				);
+
 			Sphere* hitSphere = sceneSpheres[intersection.sphereIndex];
 
 			glm::mat4 invTransform = glm::inverse(hitSphere->transform);
@@ -548,8 +566,26 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 		}
 		else if (intersection.triangleIndex != -1)
 		{
-			std::vector<Triangle*> sceneTriangles = scene->GetTriangles();
+			std::vector<Triangle*>& sceneTriangles = scene->GetTriangles();
 			Triangle* hitTri = sceneTriangles[intersection.triangleIndex];
+
+			if (isLightSample && !hitTri->isLight)
+				return Intersection(
+					false,
+					intersectionPoint,
+					hitObjectDiffuse,
+					hitObjectSpecular,
+					hitObjectEmission,
+					hitObjectShininess,
+					hitObjectAmbient,
+					hitObjectNormal,
+					glm::vec3(0, 0, 0),
+					1.0f,
+					minDist,
+					false,
+					hitHasTexture,
+					NULL
+				);
 
 		//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
 		//	glm::vec3 tBetaGamma = intersection.t;
@@ -597,7 +633,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 
 glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth)
 {
-	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray), false);
 	glm::vec3 finalCol = glm::vec3(0.0f);
 	glm::vec3 eyeDir = glm::normalize(-ray.direction);
 
@@ -629,7 +665,7 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.001f);
 			Ray shadowRay(origin, dir);
-			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay);
+			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay, true);
 			if (shadowIntersection.didHit)
 			{
 				continue;
@@ -662,7 +698,7 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 			glm::vec3 dir = normalizedLightDirection;
 			glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.001f);
 			Ray shadowRay(origin, dir);
-			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay);
+			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay, true);
 			if (shadowIntersection.didHit)
 			{
 				float distanceToOccluder = glm::length(shadowIntersection.intersectionPoint - intersection.intersectionPoint);
@@ -707,7 +743,7 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 
 glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera)
 {
-	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray), false);
 
 	if (intersection.didHit)
 	{
@@ -756,7 +792,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 						glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
 						glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
 						Ray sampleRay(origin, dir);
-						Intersection lightSample = FindIntersection(grid, scene, sampleRay);
+						Intersection lightSample = FindIntersection(grid, scene, sampleRay, true);
 
 						if (!lightSample.isLight)
 						{
@@ -787,7 +823,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
 					glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
 					Ray sampleRay(origin, dir);
-					Intersection lightSample = FindIntersection(grid, scene, sampleRay);
+					Intersection lightSample = FindIntersection(grid, scene, sampleRay, true);
 
 					if (!lightSample.isLight)
 						continue;
@@ -849,7 +885,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/dragon.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornell.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1104,7 +1140,7 @@ int main() {
 		{
 			int depth = 0;
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
-			Intersection intersection = FindIntersection(grid, scene, ray);
+			Intersection intersection = FindIntersection(grid, scene, ray, false);
 			if (integrator == "raytracer")
 			{
 				col = FindColor(grid, ray, scene, &cam, depth);

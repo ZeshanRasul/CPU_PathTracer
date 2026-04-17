@@ -50,6 +50,9 @@
     <ClInclude Include="src\Texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\QuadLight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
@@ -65,6 +68,14 @@
     <None Include="Release\scene5.test" />
     <None Include="Release\scene6.test" />
     <None Include="Release\scene7.test" />
+    <None Include="Release\analytic.test" />
+    <None Include="Release\cornell.test" />
+    <None Include="Release\CPU_PathTracer.exe" />
+    <None Include="Release\CPU_PathTracer.pdb" />
+    <None Include="Release\direct3x3.test" />
+    <None Include="Release\direct9.test" />
+    <None Include="Release\dragon.test" />
+    <None Include="Release\sphere.test" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png">
@@ -89,6 +100,27 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="scene4-specular.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="analytic.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="cornell.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="direct3x3.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="direct9.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="sphere.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="dragon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Release\dragon.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

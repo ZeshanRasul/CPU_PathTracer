@@ -14,7 +14,7 @@ public:
 		spheres.push_back(sphere);
 	}
 
-	std::vector<Sphere*> GetSpheres()
+	std::vector<Sphere*>& GetSpheres()
 	{
 		return spheres;
 	}
@@ -29,7 +29,7 @@ public:
 		triangles.push_back(tri);
 	}
 
-	std::vector<Triangle*> GetTriangles()
+	std::vector<Triangle*>& GetTriangles()
 	{
 		return triangles;
 	}
