@@ -730,14 +730,15 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			return intersection->hitObjectEmission;
 
 		glm::vec3 directLight = glm::vec3(0.0f);
-		float lightArea = light->ab.length() * light->ac.length();
+		float angleAB = glm::dot(glm::normalize(light->ab), glm::normalize(light->ac));
+		float lightArea = glm::length(glm::cross(light->ab, light->ac)) * glm::sin(glm::acos(angleAB));
 		for (int i = 0; i < samples; i++)
 		{
 			float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 			float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 			glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
 			glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
-			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
 			Ray sampleRay(origin, dir);
 			Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
 
@@ -748,11 +749,11 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			glm::vec3 normWO = glm::normalize(eyeDir);
 			glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
 
-			glm::vec3 lightNormal = glm::cross(-light->ab, -light->ac);
+			glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
 
 			float reflectVecDotWi = glm::dot(reflectVector, dir);
-			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)M_2_PI)) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-			float G = (1.0f / pow(glm::length(intersection->intersectionPoint - sampleLightPoint),2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * glm::dot(lightNormal, ((glm::normalize(sampleLightPoint - intersection->intersectionPoint))) / pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f));
+			glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
+			float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
 			directLight += brdf * G;
 		}
 
@@ -1049,7 +1050,7 @@ int main() {
 
 	glm::vec3 col = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	for (int y = IMAGE_HEIGHT; y > 0; y--)
+	for (int y = 0; y < IMAGE_HEIGHT; y++)
 	{
 		for (int x = 0; x < IMAGE_WIDTH; x++)
 		{
@@ -1074,11 +1075,11 @@ int main() {
 			// - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
 			// - Explicitly cast to BYTE to avoid C4244 warning
 
-		/*	if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
+			if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
 				pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
 				pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
 				pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
-			}*/
+			}
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
 			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
