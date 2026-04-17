@@ -4,7 +4,7 @@
 class QuadLight
 {
 public:
-	QuadLight(glm::vec3 a, glm::vec3 ab, glm::vec3 ac, glm::vec3 intensity)
+	QuadLight(glm::dvec3 a, glm::dvec3 ab, glm::dvec3 ac, glm::vec3 intensity)
 		:
 		a(a),
 		ab(ab),
@@ -17,7 +17,7 @@ public:
 		v3 = a + ac;
 	}
 
-	void GetThetaForAllVertices(glm::vec3 r)
+	void GetThetaForAllVertices(glm::dvec3 r)
 	{
 		theta0 = glm::acos(glm::dot(glm::normalize(v0 - r), glm::normalize(v1 - r)));
 		theta1 = glm::acos(glm::dot(glm::normalize(v1 - r), glm::normalize(v2 - r)));
@@ -25,7 +25,7 @@ public:
 		theta3 = glm::acos(glm::dot(glm::normalize(v3 - r), glm::normalize(v0 - r)));
 	}
 
-	void GetGammaForAllVertices(glm::vec3 r)
+	void GetGammaForAllVertices(glm::dvec3 r)
 	{
 		gamma0 = glm::normalize(glm::cross((v0 - r), (v1 - r)));
 		gamma1 = glm::normalize(glm::cross((v1 - r), (v2 - r)));
@@ -40,14 +40,14 @@ public:
 	}
 
 public:
-	glm::vec3 a;
-	glm::vec3 ab;
-	glm::vec3 ac;
-	glm::vec3 intensity;
-	glm::vec3 v0;
-	glm::vec3 v1;
-	glm::vec3 v2;
-	glm::vec3 v3;
+	glm::dvec3 a;
+	glm::dvec3 ab;
+	glm::dvec3 ac;
+	glm::dvec3 intensity;
+	glm::dvec3 v0;
+	glm::dvec3 v1;
+	glm::dvec3 v2;
+	glm::dvec3 v3;
 	glm::vec3 gamma0;
 	glm::vec3 gamma1;
 	glm::vec3 gamma2;

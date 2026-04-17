@@ -182,6 +182,7 @@
     <Image Include="scene5.png" />
     <Image Include="scene6.png" />
     <Image Include="scene7.png" />
+    <Image Include="sphere.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

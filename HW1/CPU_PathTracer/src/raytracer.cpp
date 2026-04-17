@@ -474,7 +474,7 @@ Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const
 	return Ray(cam.getEyePos(), direction);
 }
 
-Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
+Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 {
 	float minDist = INFINITY;
 	Sphere* hitSphere = NULL;
@@ -502,14 +502,14 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 	std::vector<Sphere*> sceneSpheres = scene->GetSpheres();
 
 
-	Intersection* intersection = new Intersection();
-	didHit = TraverseUniformGrid(*grid, scene, ray, *intersection);
+	Intersection intersection;
+	didHit = TraverseUniformGrid(*grid, scene, ray, intersection);
 
 	if (didHit)
 	{
-		if (intersection->hitObjectIsSphere)
+		if (intersection.hitObjectIsSphere)
 		{
-			Sphere* hitSphere = sceneSpheres[intersection->sphereIndex];
+			Sphere* hitSphere = sceneSpheres[intersection.sphereIndex];
 
 			glm::mat4 invTransform = glm::inverse(hitSphere->transform);
 
@@ -526,7 +526,7 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 			glm::mat3 normalMat = glm::transpose(glm::inverse(glm::mat3(hitSphere->transform)));
 			glm::vec3 hitObjectNormal = glm::normalize(normalMat * localNormal);
 
-			return new Intersection(
+			return Intersection(
 				true,
 				intersectionPoint,
 				hitSphere->diffuse,
@@ -537,22 +537,25 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				hitObjectNormal,
 				glm::vec3(hitSphere->transform * glm::vec4(hitSphere->center, 1.0f)),
 				hitSphere->ior,
-				intersection->t,
+				intersection.t,
 				false,
 				hitSphere->matTexture != NULL,
 				hitSphere->matTexture
 			);
+
+			return intersection;
+
 		}
-		else if (intersection->triangleIndex != -1)
+		else if (intersection.triangleIndex != -1)
 		{
 			std::vector<Triangle*> sceneTriangles = scene->GetTriangles();
-			Triangle* hitTri = sceneTriangles[intersection->triangleIndex];
+			Triangle* hitTri = sceneTriangles[intersection.triangleIndex];
 
 			glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
 			float tTriangle = tBetaGamma.x;
 			glm::vec3 intersectionPoint = ray.origin + ray.direction * tTriangle;
 
-			return new Intersection(
+			return Intersection(
 				true,
 				intersectionPoint,
 				hitTri->diffuse,
@@ -568,10 +571,12 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 				false,
 				NULL
 			);
+
+			;
 		}
 	}
 
-	return new Intersection(
+	return Intersection(
 		false,
 		intersectionPoint,
 		hitObjectDiffuse,
@@ -591,44 +596,41 @@ Intersection* FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray)
 
 glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth)
 {
-	Intersection* intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
 	glm::vec3 finalCol = glm::vec3(0.0f);
 	glm::vec3 eyeDir = glm::normalize(-ray.direction);
 
-	if (!intersection->didHit)
+	if (!intersection.didHit)
 	{
-		delete intersection;
 		return glm::vec3(0.0f);
 	}
 
-	if (intersection->didHit)
+	if (intersection.didHit)
 	{
 		std::vector<DirectionalLight*> dirLights = scene->GetDirLights();
 		for (auto& dirLight : dirLights)
 		{
 			glm::vec3 normalizedLightDirection = glm::normalize(dirLight->direction);
-			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
+			float nDotL = glm::dot(intersection.hitObjectNormal, normalizedLightDirection);
 
-			if (intersection->hitHasTexture)
+			if (intersection.hitHasTexture)
 			{
-				intersection->hitObjectDiffuse = intersection->hitObjectTexture->value(0, 0, intersection->intersectionPoint);
+				intersection.hitObjectDiffuse = intersection.hitObjectTexture->value(0, 0, intersection.intersectionPoint);
 			}
-			glm::vec3 lambert = intersection->hitObjectDiffuse * dirLight->colour * std::max(nDotL, 0.0f);
+			glm::vec3 lambert = intersection.hitObjectDiffuse * dirLight->colour * std::max(nDotL, 0.0f);
 
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
-			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
-			glm::vec3 phong = intersection->hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
+			float nDotH = glm::dot(intersection.hitObjectNormal, halfVec);
+			glm::vec3 phong = intersection.hitObjectSpecular * dirLight->colour * pow(std::max(nDotH, 0.0f), intersection.hitObjectShininess);
 			bounces = 0;
 
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
-			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.001f);
 			Ray shadowRay(origin, dir);
-			Intersection* shadowIntersection = FindIntersection(grid, scene, shadowRay);
-			if (shadowIntersection->didHit)
+			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay);
+			if (shadowIntersection.didHit)
 			{
-				//finalCol += intersection->hitObjectAmbient;
-				delete shadowIntersection;
 				continue;
 			}
 
@@ -639,31 +641,30 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 
 		for (auto& pointLight : pointLights)
 		{
-			glm::vec3 lightDir = pointLight->position - intersection->intersectionPoint;
+			glm::vec3 lightDir = pointLight->position - intersection.intersectionPoint;
 			float distanceToLight = glm::length(lightDir);
 			glm::vec3 normalizedLightDirection = glm::normalize(lightDir);
-			float nDotL = glm::dot(intersection->hitObjectNormal, normalizedLightDirection);
-			if (intersection->hitHasTexture)
+			float nDotL = glm::dot(intersection.hitObjectNormal, normalizedLightDirection);
+			if (intersection.hitHasTexture)
 			{
-				intersection->hitObjectDiffuse = intersection->hitObjectTexture->value(0, 0, intersection->intersectionPoint);
+				intersection.hitObjectDiffuse = intersection.hitObjectTexture->value(0, 0, intersection.intersectionPoint);
 			}
 
 			float attenuation = 1.0f / (constant + linear * distanceToLight + quadratic * (distanceToLight * distanceToLight));
 
-			glm::vec3 lambert = intersection->hitObjectDiffuse * pointLight->colour * std::max(nDotL, 0.0f);
+			glm::vec3 lambert = intersection.hitObjectDiffuse * pointLight->colour * std::max(nDotL, 0.0f);
 			glm::vec3 halfVec = glm::normalize(normalizedLightDirection + eyeDir);
-			float nDotH = glm::dot(intersection->hitObjectNormal, halfVec);
-			glm::vec3 phong = intersection->hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection->hitObjectShininess);
+			float nDotH = glm::dot(intersection.hitObjectNormal, halfVec);
+			glm::vec3 phong = intersection.hitObjectSpecular * pointLight->colour * pow(std::max(nDotH, 0.0f), intersection.hitObjectShininess);
 
 			// Shadow Ray
 			glm::vec3 dir = normalizedLightDirection;
-			glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+			glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.001f);
 			Ray shadowRay(origin, dir);
-			Intersection* shadowIntersection = FindIntersection(grid, scene, shadowRay);
-			if (shadowIntersection->didHit)
+			Intersection shadowIntersection = FindIntersection(grid, scene, shadowRay);
+			if (shadowIntersection.didHit)
 			{
-				float distanceToOccluder = glm::length(shadowIntersection->intersectionPoint - intersection->intersectionPoint);
-				delete shadowIntersection;
+				float distanceToOccluder = glm::length(shadowIntersection.intersectionPoint - intersection.intersectionPoint);
 
 				if (distanceToOccluder < distanceToLight)
 				{
@@ -672,31 +673,30 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 			}
 			else
 			{
-				delete shadowIntersection;
 			}
 
 			finalCol += (lambert + phong) * attenuation;
 		}
 		if (depth >= maxDepth)
 		{
-			return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
+			return finalCol + intersection.hitObjectEmission + intersection.hitObjectAmbient;
 		}
 
-		glm::vec3 reflectDir = glm::reflect(ray.direction, intersection->hitObjectNormal);
-		glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.001f);
+		glm::vec3 reflectDir = glm::reflect(ray.direction, intersection.hitObjectNormal);
+		glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.001f);
 		Ray mirrorRay(origin, reflectDir);
-		finalCol += FindColor(grid, mirrorRay, scene, camera, depth + 1) * intersection->hitObjectSpecular;
+		finalCol += FindColor(grid, mirrorRay, scene, camera, depth + 1) * intersection.hitObjectSpecular;
 
-		//glm::vec3 refractDir = glm::refract(ray.direction, intersection->hitObjectNormal, 1.0f / intersection->hitObjectIOR);
+		//glm::vec3 refractDir = glm::refract(ray.direction, intersection.hitObjectNormal, 1.0f / intersection.hitObjectIOR);
 		//if (glm::length(refractDir) > 0.0f)
 		//{
 		//	Ray refractRay(origin, glm::normalize(refractDir));
-		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * 0.5f * intersection->hitObjectSpecular;
+		//	finalCol += FindColor(refractRay, scene, camera, depth + 1) * 0.5f * intersection.hitObjectSpecular;
 		//}
 
 
 
-		return finalCol + intersection->hitObjectEmission + intersection->hitObjectAmbient;
+		return finalCol + intersection.hitObjectEmission + intersection.hitObjectAmbient;
 	}
 	else
 	{
@@ -706,37 +706,41 @@ glm::vec3 FindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* cam
 
 glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera)
 {
-	Intersection* intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
+	Intersection intersection = FindIntersection(grid, scene, const_cast<Ray&>(ray));
 
-	if (intersection->didHit)
+	if (intersection.didHit)
 	{
 		QuadLight* light = scene->GetQuadLights()[0];
-		light->GetThetaForAllVertices(intersection->intersectionPoint);
-		light->GetGammaForAllVertices(intersection->intersectionPoint);
+		light->GetThetaForAllVertices(intersection.intersectionPoint);
+		light->GetGammaForAllVertices(intersection.intersectionPoint);
 		glm::vec3 phi = light->GetPhi();
-		return (intersection->hitObjectDiffuse / (float)M_PI) * (light->intensity) * glm::dot(phi, intersection->hitObjectNormal) + intersection->hitObjectEmission;
+		return (intersection.hitObjectDiffuse / (float)M_PI) * (light->intensity) * glm::dot(phi, intersection.hitObjectNormal) + intersection.hitObjectEmission;
 	}
 
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
-glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, Intersection* intersection)
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection)
 {
 
-	if (intersection->didHit)
+	std::vector<QuadLight*> lights = scene->GetQuadLights();
+	glm::vec3 directLight = glm::vec3(0.0f);
+	for (QuadLight* light : lights)
 	{
-		glm::vec3 directLight = glm::vec3(0.0f);
-		for (QuadLight* light : scene->GetQuadLights())
+		if (intersection.didHit)
 		{
+			if (intersection.isLight)
+				return intersection.hitObjectEmission;
 
-			if (intersection->isLight)
-				return intersection->hitObjectEmission;
 
 			float angleAB = glm::dot(glm::normalize(light->ab), glm::normalize(light->ac));
 			float lightArea = glm::length(glm::cross(light->ab, light->ac)) * glm::sin(glm::acos(angleAB));
+
+			glm::vec3 perLight = glm::vec3(0.0f);
+
 			if (stratify)
 			{
-				int M = sqrt(samples);
+				int M = (int)sqrt(samples);
 
 				for (int i = 0; i < M; i++)
 				{
@@ -745,24 +749,26 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 						float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 						float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 						glm::vec3 sampleLightPoint = light->a + ((j + u1) / M) * light->ab + ((i + u2) / M) * light->ac;
-						glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
-						glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
+						glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
+						glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
 						Ray sampleRay(origin, dir);
-						Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
+						Intersection lightSample = FindIntersection(grid, scene, sampleRay);
 
-						if (!lightSample->isLight)
+						if (!lightSample.isLight)
+						{
 							continue;
+						}
 
-						glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
+						glm::vec3 eyeDir = (camera->getEyePos() - intersection.intersectionPoint);
 						glm::vec3 normWO = glm::normalize(eyeDir);
-						glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+						glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
 
 						glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
 
 						float reflectVecDotWi = glm::dot(reflectVector, dir);
-						glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-						float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
-						directLight += brdf * G;
+						glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
+						float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+						perLight += brdf * G;
 					}
 				}
 			}
@@ -774,33 +780,31 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 					float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
 					glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
-					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection->intersectionPoint);
-					glm::vec3 origin = intersection->intersectionPoint + (intersection->hitObjectNormal * 0.01f);
+					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
+					glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
 					Ray sampleRay(origin, dir);
-					Intersection* lightSample = FindIntersection(grid, scene, sampleRay);
+					Intersection lightSample = FindIntersection(grid, scene, sampleRay);
 
-					if (!lightSample->isLight)
+					if (!lightSample.isLight)
 						continue;
 
-					glm::vec3 eyeDir = (camera->getEyePos() - intersection->intersectionPoint);
+					glm::vec3 eyeDir = (camera->getEyePos() - intersection.intersectionPoint);
 					glm::vec3 normWO = glm::normalize(eyeDir);
-					glm::vec3 reflectVector = glm::reflect(normWO, intersection->hitObjectNormal);
+					glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
 
 					glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
 
 					float reflectVecDotWi = glm::dot(reflectVector, dir);
-					glm::vec3 brdf = (intersection->hitObjectDiffuse / (float)M_PI) + (intersection->hitObjectSpecular * ((intersection->hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection->hitObjectShininess));
-					float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection->intersectionPoint), 2.0f)) * std::max(glm::dot(intersection->hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
-					directLight += brdf * G;
+					glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
+					float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+					perLight += brdf * G;
 				}
 			}
 
-			directLight *= light->intensity * (lightArea / (float)samples);
+			directLight += perLight * light->intensity * (lightArea / (float)samples);
 		}
-		return directLight;
 	}
-
-	return glm::vec3(0.0f, 0.0f, 0.0f);
+	return directLight;
 }
 
 
@@ -817,8 +821,8 @@ int main() {
 	FreeImage_Initialise();
 
 	glm::vec3 eyePos = glm::vec3(0.0f), center = glm::vec3(0.0f), up = glm::vec3(0.0f);
-	int width;
-	int height;
+	int width = 640;
+	int height = 480;
 	float eyeX, eyeY, eyeZ;
 	float centerX, centerY, centerZ;
 	float upX, upY, upZ;
@@ -826,7 +830,7 @@ int main() {
 	float ambientR = 0, ambientG = 0, ambientB = 0;
 	float diffuseR = 0, diffuseG = 0, diffuseB = 0;
 	float specularR = 0, specularG = 0, specularB = 0;
-	float shininess = 0;
+	float shininess = 1.0f;
 	float emissionR = 0, emissionG = 0, emissionB = 0;
 	float dirLightX, dirLightY, dirLightZ;
 	float dirLightR, dirLightG, dirLightB;
@@ -841,7 +845,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/direct3x3.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornell.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1047,8 +1051,8 @@ int main() {
 			glm::vec3 v2 = a + ab + ac;
 			glm::vec3 v3 = a + ac;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), true, NULL));
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(specularR, specularG, specularB), intensity, shininess, glm::vec3(ambientR, ambientG, ambientB), true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), true, NULL));
 			scene->AddQuadLight(quadLight);
 		}
 
@@ -1096,7 +1100,7 @@ int main() {
 		{
 			int depth = 0;
 			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
-			Intersection* intersection = FindIntersection(grid, scene, ray);
+			Intersection intersection = FindIntersection(grid, scene, ray);
 			if (integrator == "raytracer")
 			{
 				col = FindColor(grid, ray, scene, &cam, depth);
