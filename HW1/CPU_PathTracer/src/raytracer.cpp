@@ -56,9 +56,9 @@ struct GridCell
 struct UniformGrid
 {
 	AABB bounds;
-	int nx = 5;
-	int ny = 5;
-	int nz = 5;
+	int nx = 20;
+	int ny = 20;
+	int nz = 20;
 	glm::vec3 cellSize = glm::vec3(1.0f);
 	std::vector<GridCell> cells;
 
@@ -1131,6 +1131,7 @@ int main() {
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
 			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
+			if ((y % 10) == 0) std::cout << "Row " << y << " / " << IMAGE_HEIGHT << "\n";
 		}
 
 	}
