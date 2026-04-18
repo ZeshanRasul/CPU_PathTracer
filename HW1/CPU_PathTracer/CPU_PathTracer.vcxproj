@@ -176,6 +176,7 @@
   <ItemGroup>
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
+    <Image Include="cornellSimple.png" />
     <Image Include="direct3x3.png" />
     <Image Include="direct9.png" />
     <Image Include="dragon.png" />

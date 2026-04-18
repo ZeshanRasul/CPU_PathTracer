@@ -125,5 +125,8 @@
     <Image Include="Release\dragon.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="cornellSimple.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

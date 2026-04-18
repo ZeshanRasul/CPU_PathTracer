@@ -876,7 +876,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (depth >= maxDepth || intersection.isLight)
+	if (depth > maxDepth || intersection.isLight)
 	{
 		return intersection.hitObjectEmission;
 	}
@@ -902,7 +902,13 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.01f, glm::normalize(w_i));
 	Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
 	depth = depth + 1;
-	glm::vec3 accumCol = PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection);
+	glm::vec3 eyeDir = (secondaryRay.direction - intersection.intersectionPoint);
+	glm::vec3 normWO = glm::normalize(eyeDir);
+	glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
+
+	float reflectVecDotWi = glm::dot(reflectVector, w_i);
+	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
+	glm::vec3 accumCol = 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * glm::dot(secondaryIntersection.hitObjectNormal, eyeDir);
 	return accumCol;
 }
 
@@ -953,9 +959,22 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				glm::vec3 accumCol(0.0f);
 				for (int pixSample = 0; pixSample < spp; pixSample++)
 				{
+					float jitterX = 0.0f;
+					float jitterY = 0.0f;
 					int depth = 0;
-					float jitterX = RandFloat() * 2.0f - 0.5f;
-					float jitterY = RandFloat() * 2.0f - 0.5f;
+					if (spp > 1)
+					{
+						// Jitter the ray within the pixel for anti-aliasing
+						jitterX = RandFloat() * 2.0f - 1.0f; // Random value in [-1, 1]
+						jitterY = RandFloat() * 2.0f - 1.0f;
+						jitterX *= 0.5f; // Scale jitter to half a pixel
+						jitterY *= 0.5f;
+					}
+					else
+					{
+						jitterX = 0.0f;
+						jitterY = 0.0f;
+					}
 					float pixSampleX = std::max(x + jitterX, 0.0f);
 					float pixSampleY = std::max(y + jitterY, 0.0f);
 					Ray ray = ShootRay(cam, pixSampleX, pixSampleY, width, height);
@@ -963,7 +982,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 
 					if (!intersection.didHit)
 					{
-						col = glm::vec3(0.0f);
+						col += glm::vec3(0.0f);
 					}
 					else
 					{
