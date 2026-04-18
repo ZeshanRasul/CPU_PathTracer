@@ -877,9 +877,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (intersection.isLight && depth > 1)
+	if (intersection.isLight && depth >= 1)
 	{
-		return accumCol;
+		
+		return glm::vec3(0.0f);
+	}
+
+	if (depth == 0)
+	{
+		accumCol += intersection.hitObjectEmission;
 	}
 
 	if (depth > maxDepth)
@@ -953,7 +959,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					if (!lightSample.isLight)
 						continue;
 
-					glm::vec3 eyeDir = (camera->getEyePos() - intersection.intersectionPoint);
+					glm::vec3 eyeDir = (ray.origin - intersection.intersectionPoint);
 					glm::vec3 normWO = glm::normalize(eyeDir);
 					glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
 
@@ -967,10 +973,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				directLight += perLight * light->intensity * (lightArea / (float)samples);
 			
-		}
-		if (depth == 1)
-		{
-			accumCol += intersection.hitObjectEmission;
 		}
 	}
 	accumCol += directLight;
