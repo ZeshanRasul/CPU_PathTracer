@@ -906,7 +906,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	glm::vec3 normWO = glm::normalize(eyeDir);
 	glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
 
-	float reflectVecDotWi = glm::dot(reflectVector, w_i);
+	float reflectVecDotWi = glm::dot(reflectVector, glm::normalize(w_i));
 	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
 	glm::vec3 accumCol = 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * glm::dot(secondaryIntersection.hitObjectNormal, eyeDir);
 	return accumCol;
