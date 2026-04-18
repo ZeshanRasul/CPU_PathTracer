@@ -877,9 +877,14 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (depth > maxDepth || intersection.isLight)
+	if (intersection.isLight && depth > 1)
 	{
-		return intersection.hitObjectEmission;
+		return accumCol;
+	}
+
+	if (depth > maxDepth)
+	{
+		return accumCol;
 		//	return glm::vec3(0.0f);
 	}
 
@@ -914,20 +919,17 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	glm::vec3 directLight = glm::vec3(0.0f);
 	if (useNEE)
 	{
-		if (depth == 1)
-		{
-			accumCol += intersection.hitObjectEmission;
-		}
+	
 		std::vector<QuadLight*> lights = scene->GetQuadLights();
 		for (QuadLight* light : lights)
 		{
-			if (secondaryIntersection.didHit)
-			{
-				if (secondaryIntersection.isLight)
-				{
-				//	directLight += secondaryIntersection.hitObjectEmission;
-					return directLight + accumCol;
-				}
+			//if (intersection.didHit)
+			//{
+			//	if (intersection.isLight)
+			//	{
+			//	//	accumCol += secondaryIntersection.hitObjectEmission;
+			//		break;
+			//	}
 
 				// double-precision intermediate for more robust result
 				glm::dvec3 dab = glm::dvec3(light->ab);
@@ -963,14 +965,17 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					perLight += brdf * G;
 				}
 
-
-
 				directLight += perLight * light->intensity * (lightArea / (float)samples);
-			}
+			
+		}
+		if (depth == 1)
+		{
+			accumCol += intersection.hitObjectEmission;
 		}
 	}
+	accumCol += directLight;
 	accumCol += 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection, useNEE) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
-	return accumCol + directLight;
+	return accumCol;
 }
 
 
