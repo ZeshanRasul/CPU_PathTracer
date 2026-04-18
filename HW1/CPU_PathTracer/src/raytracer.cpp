@@ -76,9 +76,9 @@ struct GridCell
 struct UniformGrid
 {
 	AABB bounds;
-	int nx = 15;
-	int ny = 15;
-	int nz = 15;
+	int nx = 10;
+	int ny = 10;
+	int nz = 10;
 	glm::vec3 cellSize = glm::vec3(1.0f);
 	std::vector<GridCell> cells;
 
@@ -102,7 +102,7 @@ AABB ComputeTriangleAABB(const Triangle* t)
 	box.Expand(t->vertex1);
 	box.Expand(t->vertex2);
 
-	glm::vec3 eps(1e-4f);
+	glm::vec3 eps(3);
 	box.min -= eps;
 	box.max += eps;
 
@@ -159,7 +159,7 @@ glm::ivec3 WorldToCell(const UniformGrid& grid, const glm::vec3& p)
 void BuildUniformGrid(UniformGrid& grid, Scene* scene)
 {
 	std::vector<Sphere*>& spheres = scene->GetSpheresRef();
-	std::vector<Triangle*> triangles = scene->GetTriangles();
+	std::vector<Triangle*>& triangles = scene->GetTriangles();
 
 	grid.bounds = ComputeSceneBounds(scene);
 
@@ -353,7 +353,7 @@ bool TraverseUniformGrid(
 		return false;
 
 	std::vector<Sphere*>& spheres = scene->GetSpheresRef();
-	std::vector<Triangle*> triangles = scene->GetTriangles();
+	std::vector<Triangle*>& triangles = scene->GetTriangles();
 
 	glm::vec3 startPoint = ray.origin + tEnter * ray.direction;
 	glm::ivec3 cell = WorldToCell(grid, startPoint);
@@ -869,11 +869,11 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, glm::vec3 accumCol)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection)
 {
 	if (!intersection.didHit)
 	{
-		return glm::vec3(1.0f);
+		return glm::vec3(0.0f);
 	}
 
 	if (depth >= maxDepth || intersection.isLight)
@@ -893,7 +893,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	s.z = glm::cos(theta);
 
 	glm::vec3 w = glm::normalize(intersection.hitObjectNormal);
-	glm::vec3 u = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0), w));
+	glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+	glm::vec3 u = glm::normalize(glm::cross(helper, w));
 	glm::vec3 v = glm::cross(w, u);
 
 	glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
@@ -901,7 +902,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.01f, glm::normalize(w_i));
 	Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
 	depth = depth + 1;
-	accumCol = accumCol + PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection, accumCol);
+	glm::vec3 accumCol = PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection);
 	return accumCol;
 }
 
@@ -952,23 +953,23 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				glm::vec3 accumCol(0.0f);
 				for (int pixSample = 0; pixSample < spp; pixSample++)
 				{
-				}
-				int depth = 0;
-				float jitterX = RandFloat() * 2.0f - 0.5f;
-				float jitterY = RandFloat() * 2.0f - 0.5f;
-				float pixSampleX = std::max(x + jitterX, 0.0f);
-				float pixSampleY = std::max(y + jitterY, 0.0f);
-				Ray ray = ShootRay(cam, pixSampleX, pixSampleY, width, height);
-				Intersection intersection = FindIntersection(&grid, &scene, ray, false);
+					int depth = 0;
+					float jitterX = RandFloat() * 2.0f - 0.5f;
+					float jitterY = RandFloat() * 2.0f - 0.5f;
+					float pixSampleX = std::max(x + jitterX, 0.0f);
+					float pixSampleY = std::max(y + jitterY, 0.0f);
+					Ray ray = ShootRay(cam, pixSampleX, pixSampleY, width, height);
+					Intersection intersection = FindIntersection(&grid, &scene, ray, false);
 
-				if (!intersection.didHit)
-				{
-					col = glm::vec3(0.0f);
-				}
-				else
-				{
-					col += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, accumCol);
+					if (!intersection.didHit)
+					{
+						col = glm::vec3(0.0f);
+					}
+					else
+					{
+						col += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
 
+					}
 				}
 
 			}
@@ -977,7 +978,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
 			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
-		//	std::cout << "Pixel (" << x << ", " << y << ") of total (" << width << ", " << height << ")" << std::endl;
+			//	std::cout << "Pixel (" << x << ", " << y << ") of total (" << width << ", " << height << ")" << std::endl;
 		}
 		int completed = ++g_rowsCompleted;
 		if ((completed % 20) == 0 || completed == height)
@@ -1304,7 +1305,7 @@ int main() {
 		if (t.joinable())
 			t.join();
 	}
-//	RenderPixels(0, IMAGE_HEIGHT, *scene, cam, integrator, IMAGE_WIDTH, IMAGE_HEIGHT, *grid, lightSamples, lightStratify, pixels, 1);
+	//	RenderPixels(0, IMAGE_HEIGHT, *scene, cam, integrator, IMAGE_WIDTH, IMAGE_HEIGHT, *grid, lightSamples, lightStratify, pixels, 1);
 
 	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
 
