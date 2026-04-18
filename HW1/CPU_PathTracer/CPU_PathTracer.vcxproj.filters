@@ -133,5 +133,8 @@
     <Image Include="cornellNEE.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="cornellRR.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

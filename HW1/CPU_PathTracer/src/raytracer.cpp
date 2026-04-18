@@ -614,8 +614,8 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 					NULL
 				);*/
 
-			//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
-			//	glm::vec3 tBetaGamma = intersection.t;
+				//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
+				//	glm::vec3 tBetaGamma = intersection.t;
 			float tTriangle = intersection.t;
 			glm::vec3 intersectionPoint = ray.origin + ray.direction * tTriangle;
 
@@ -890,7 +890,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput)
 {
 	glm::vec3 accumCol(0.0f);
 	if (!intersection.didHit)
@@ -900,20 +900,20 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	if (intersection.isLight && depth >= 1)
 	{
-		
+
 		return glm::vec3(0.0f);
 	}
 
 	if (depth == 0)
 	{
-		accumCol += intersection.hitObjectEmission;
+		accumCol += throughput * intersection.hitObjectEmission;
 	}
 
-	if (depth >= maxDepth)
-	{
-		return accumCol;
-		//	return glm::vec3(0.0f);
-	}
+	//if (depth >= maxDepth)
+	//{
+	//	return accumCol;
+	//	//	return glm::vec3(0.0f);
+	//}
 
 	float xi_1 = RandFloat();
 	float xi_2 = RandFloat();
@@ -947,60 +947,81 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	glm::vec3 directLight = glm::vec3(0.0f);
 	if (useNEE)
 	{
-	
+
 		std::vector<QuadLight*> lights = scene->GetQuadLights();
 		for (QuadLight* light : lights)
 		{
-				float lightAread = glm::length(glm::cross(light->ab, light->ac));
-				float lightArea = static_cast<float>(lightAread);
-				glm::vec3 perLight = glm::vec3(0.0f);
+			float lightAread = glm::length(glm::cross(light->ab, light->ac));
+			float lightArea = static_cast<float>(lightAread);
+			glm::vec3 perLight = glm::vec3(0.0f);
 
 
-				for (int i = 0; i < samples; i++)
+			for (int i = 0; i < samples; i++)
+			{
+				float u1 = RandFloatOne();
+				float u2 = RandFloatOne();
+				glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
+				glm::vec3 toLight = sampleLightPoint - intersection.intersectionPoint;
+				float distanceToLight = glm::length(toLight);
+				glm::vec3 dir = toLight / distanceToLight;
+
+				glm::vec3 origin = intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f;
+				Ray sampleRay(origin, dir);
+				Intersection lightSample = FindIntersection(grid, scene, sampleRay, false);
+
+				const float shadowEpsilon = 1e-2f;
+				if (!lightSample.didHit)
 				{
-					float u1 = RandFloatOne();
-					float u2 = RandFloatOne();
-					glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
-					glm::vec3 toLight = sampleLightPoint - intersection.intersectionPoint;
-					float distanceToLight = glm::length(toLight);
-					glm::vec3 dir = toLight / distanceToLight;
-
-					glm::vec3 origin = intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f;
-					Ray sampleRay(origin, dir);
-					Intersection lightSample = FindIntersection(grid, scene, sampleRay, false);
-
-					const float shadowEpsilon = 1e-2f;
-					if (!lightSample.didHit)
-					{
-						continue;
-					}
-
-					if (!lightSample.isLight)
-					{
-						continue;
-					}
-
-					if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon)
-					{
-						continue;
-					}
-					glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
-					glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-					glm::vec3 wi = dir;
-					glm::vec3 reflectVector = glm::reflect(-wi, intersection.hitObjectNormal);
-					float reflectVecDotWo = std::max(glm::dot(reflectVector, wo), 0.0f);
-					glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
-					float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
-					perLight += brdf * G;
+					continue;
 				}
 
-				directLight += perLight * light->intensity * (lightArea / (float)samples);
-			
+				if (!lightSample.isLight)
+				{
+					continue;
+				}
+
+				if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon)
+				{
+					continue;
+				}
+				glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
+				glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+				glm::vec3 wi = dir;
+				glm::vec3 reflectVector = glm::reflect(-wi, intersection.hitObjectNormal);
+				float reflectVecDotWo = std::max(glm::dot(reflectVector, wo), 0.0f);
+				glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
+				float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+				perLight += brdf * G;
+			}
+
+			directLight += perLight * light->intensity * (lightArea / (float)samples);
+
 		}
 	}
+	//accumCol += directLight;
 	accumCol += directLight;
-	accumCol += 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
+
+	if (useRR)
+	{
+		throughput *= brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * (2.0f * (float)M_PI);
+
+		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
+
+		if (q > RandFloatOne())
+		{
+			return accumCol;
+		}
+		else
+		{
+			throughput /= (1.0f - q);
+		}
+	}
+
+	accumCol += 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
 	return accumCol;
+
+
+
 }
 
 
@@ -1012,7 +1033,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR)
 {
 	{
 		std::ostringstream oss;
@@ -1077,12 +1098,13 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					}
 					else
 					{
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE);
+						glm::vec3 throughput = glm::vec3(1.0f);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput);
 
 
 
 						//	accumCol += MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
-						//	accumCol += intersection.hitObjectEmission;
+						//accumCol += intersection.hitObjectEmission;
 					}
 				}
 
@@ -1133,11 +1155,12 @@ int main() {
 	glm::vec3 a, ab, ac, intensity;
 	int spp = 1;
 	bool useNEE = false;
+	bool useRR = false;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellNEE.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellRR.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1382,6 +1405,14 @@ int main() {
 			iss >> shouldUseNEE;
 			useNEE = shouldUseNEE == "on" ? true : false;
 		}
+
+		if (cmd == "russianroulette")
+		{
+			std::cout << line << std::endl;
+			std::string shouldUseRR;
+			iss >> shouldUseRR;
+			useRR = shouldUseRR == "on" ? true : false;
+		}
 	}
 
 	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
@@ -1420,7 +1451,7 @@ int main() {
 
 		if (start >= end) continue; // nothing to do for this thread
 
-		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE);
+		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE, useRR);
 	}
 
 	for (auto& t : threads)

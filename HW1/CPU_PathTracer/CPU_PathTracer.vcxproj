@@ -179,6 +179,7 @@
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
     <Image Include="cornellNEE.png" />
+    <Image Include="cornellRR.png" />
     <Image Include="cornellSimple.png" />
     <Image Include="direct3x3.png" />
     <Image Include="direct9.png" />
