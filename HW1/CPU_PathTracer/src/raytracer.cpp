@@ -876,23 +876,23 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (depth >= maxDepthight)
+	if (depth >= maxDepth || intersection.isLight)
 	{
 		return intersection.hitObjectEmission;
+	//	return glm::vec3(0.0f);
 	}
 
 	float xi_1 = RandFloat();
 	float xi_2 = RandFloat();
 
 
-	float r = sqrt(xi_1);
-	float theta = 2.0f * M_PI * xi_2;
+	float theta = glm::acos(xi_1);
+	float phi = 2.0f * M_PI * xi_2;
 
-	float x = r * cos(theta);
-	float y = r * sin(theta);
-	float z = sqrt(1.0f - xi_1);
-
-	glm::vec3 s(x, y, z);
+	glm::vec3 s = glm::vec3(0.0f);
+	s.x = glm::cos(phi) * glm::sin(theta);
+	s.y = glm::sin(phi) * glm::sin(theta);
+	s.z = glm::cos(theta);
 
 	glm::vec3 w = glm::normalize(intersection.hitObjectNormal);
 	glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
@@ -910,7 +910,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	float reflectVecDotWi = glm::max(glm::dot(reflectVector, w_i), 0.0f);
 	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * std::max(glm::pow(reflectVecDotWi, intersection.hitObjectShininess), 0.0f);
-	glm::vec3 accumCol = (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
+	glm::vec3 accumCol = 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
 	return accumCol;
 }
 
@@ -988,11 +988,15 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					}
 					else
 					{
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection) + MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
 
+
+
+					//	accumCol += MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
+					//	accumCol += intersection.hitObjectEmission;
 					}
-				
 				}
+
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
 				col = accumCol;
 			}
