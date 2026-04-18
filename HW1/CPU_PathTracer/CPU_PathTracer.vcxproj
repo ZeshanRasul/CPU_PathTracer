@@ -155,6 +155,8 @@
     <None Include="Debug\cornellSimple.test" />
     <None Include="Release\analytic.test" />
     <None Include="Release\cornell.test" />
+    <None Include="Release\cornellNEE.test" />
+    <None Include="Release\cornellRR.test" />
     <None Include="Release\cornellSimple.test" />
     <None Include="Release\CPU_PathTracer.exe" />
     <None Include="Release\CPU_PathTracer.pdb" />
@@ -176,6 +178,7 @@
   <ItemGroup>
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
+    <Image Include="cornellNEE.png" />
     <Image Include="cornellSimple.png" />
     <Image Include="direct3x3.png" />
     <Image Include="direct9.png" />

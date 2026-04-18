@@ -78,6 +78,8 @@
     <None Include="Release\sphere.test" />
     <None Include="Release\cornellSimple.test" />
     <None Include="Debug\cornellSimple.test" />
+    <None Include="Release\cornellNEE.test" />
+    <None Include="Release\cornellRR.test" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png">
@@ -126,6 +128,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="cornellSimple.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="cornellNEE.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

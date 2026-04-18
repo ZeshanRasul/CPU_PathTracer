@@ -777,7 +777,7 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
-glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection)
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool isIndirect)
 {
 
 	std::vector<QuadLight*> lights = scene->GetQuadLights();
@@ -786,7 +786,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	{
 		if (intersection.didHit)
 		{
-			if (intersection.isLight)
+			if (!isIndirect)
 				return intersection.hitObjectEmission;
 
 
@@ -869,17 +869,18 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE)
 {
+	glm::vec3 accumCol(0.0f);
 	if (!intersection.didHit)
 	{
 		return glm::vec3(0.0f);
 	}
 
-	if (depth >= maxDepth || intersection.isLight)
+	if (depth > maxDepth || intersection.isLight)
 	{
 		return intersection.hitObjectEmission;
-	//	return glm::vec3(0.0f);
+		//	return glm::vec3(0.0f);
 	}
 
 	float xi_1 = RandFloat();
@@ -910,8 +911,66 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	float reflectVecDotWi = glm::max(glm::dot(reflectVector, w_i), 0.0f);
 	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * std::max(glm::pow(reflectVecDotWi, intersection.hitObjectShininess), 0.0f);
-	glm::vec3 accumCol = 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
-	return accumCol;
+	glm::vec3 directLight = glm::vec3(0.0f);
+	if (useNEE)
+	{
+		if (depth == 1)
+		{
+			accumCol += intersection.hitObjectEmission;
+		}
+		std::vector<QuadLight*> lights = scene->GetQuadLights();
+		for (QuadLight* light : lights)
+		{
+			if (secondaryIntersection.didHit)
+			{
+				if (secondaryIntersection.isLight)
+				{
+				//	directLight += secondaryIntersection.hitObjectEmission;
+					return directLight + accumCol;
+				}
+
+				// double-precision intermediate for more robust result
+				glm::dvec3 dab = glm::dvec3(light->ab);
+				glm::dvec3 dac = glm::dvec3(light->ac);
+				double angleABd = glm::clamp(glm::dot(glm::normalize(dab), glm::normalize(dac)), -1.0, 1.0);
+				double lightAread = glm::length(glm::cross(dab, dac));
+				float lightArea = static_cast<float>(lightAread);
+				glm::vec3 perLight = glm::vec3(0.0f);
+
+
+				for (int i = 0; i < samples; i++)
+				{
+					float u1 = RandFloat();
+					float u2 = RandFloat();
+					glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
+					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
+					glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
+					Ray sampleRay(origin, dir);
+					Intersection lightSample = FindIntersection(grid, scene, sampleRay, true);
+
+					if (!lightSample.isLight)
+						continue;
+
+					glm::vec3 eyeDir = (camera->getEyePos() - intersection.intersectionPoint);
+					glm::vec3 normWO = glm::normalize(eyeDir);
+					glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
+
+					glm::vec3 lightNormal = glm::normalize(glm::cross(-light->ab, -light->ac));
+
+					float reflectVecDotWi = glm::dot(reflectVector, dir);
+					glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
+					float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+					perLight += brdf * G;
+				}
+
+
+
+				directLight += perLight * light->intensity * (lightArea / (float)samples);
+			}
+		}
+	}
+	accumCol += 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection, useNEE) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
+	return accumCol + directLight;
 }
 
 
@@ -923,7 +982,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE)
 {
 	{
 		std::ostringstream oss;
@@ -953,7 +1012,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 				else if (integrator == "direct")
 				{
-					col = MonteCarloFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
+					col = MonteCarloFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE);
 				}
 			}
 			else if (integrator == "pathtracer")
@@ -988,12 +1047,12 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					}
 					else
 					{
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE);
 
 
 
-					//	accumCol += MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
-					//	accumCol += intersection.hitObjectEmission;
+						//	accumCol += MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
+						//	accumCol += intersection.hitObjectEmission;
 					}
 				}
 
@@ -1042,13 +1101,13 @@ int main() {
 	bool lightStratify = false;
 	std::string integrator;
 	glm::vec3 a, ab, ac, intensity;
-	int spp = 2;
-
+	int spp = 1;
+	bool useNEE = false;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellSimple.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellNEE.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1285,6 +1344,14 @@ int main() {
 			std::cout << line << std::endl;
 			iss >> spp;
 		}
+
+		if (cmd == "nexteventestimation")
+		{
+			std::cout << line << std::endl;
+			std::string shouldUseNEE;
+			iss >> shouldUseNEE;
+			useNEE = shouldUseNEE == "on" ? true : false;
+		}
 	}
 
 	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
@@ -1323,7 +1390,7 @@ int main() {
 
 		if (start >= end) continue; // nothing to do for this thread
 
-		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp);
+		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE);
 	}
 
 	for (auto& t : threads)
