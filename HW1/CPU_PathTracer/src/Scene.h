@@ -59,7 +59,7 @@ public:
 		quadLights.push_back(quadLight);
 	}
 
-	std::vector<QuadLight*> GetQuadLights()
+	std::vector<QuadLight*>& GetQuadLights()
 	{
 		return quadLights;
 	}

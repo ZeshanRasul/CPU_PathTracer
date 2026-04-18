@@ -837,8 +837,8 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				for (int i = 0; i < samples; i++)
 				{
-					float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
-					float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+					float u1 = RandFloat();
+					float u2 = RandFloat();
 					glm::vec3 sampleLightPoint = light->a + u1 * light->ab + u2 * light->ac;
 					glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
 					glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
@@ -876,7 +876,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (depth > maxDepth || intersection.isLight)
+	if (depth >= maxDepth || intersection.isLight)
 	{
 		return intersection.hitObjectEmission;
 	}
@@ -884,13 +884,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float xi_1 = RandFloat();
 	float xi_2 = RandFloat();
 
-	float theta = glm::acos(xi_1);
-	float phi = 2.0f * M_PI * xi_2;
 
-	glm::vec3 s = glm::vec3(0.0f);
-	s.x = glm::cos(phi) * glm::sin(theta);
-	s.y = glm::sin(phi) * glm::sin(theta);
-	s.z = glm::cos(theta);
+	float r = sqrt(xi_1);
+	float theta = 2.0f * M_PI * xi_2;
+
+	float x = r * cos(theta);
+	float y = r * sin(theta);
+	float z = sqrt(1.0f - xi_1);
+
+	glm::vec3 s(x, y, z);
 
 	glm::vec3 w = glm::normalize(intersection.hitObjectNormal);
 	glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
@@ -902,13 +904,13 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.01f, glm::normalize(w_i));
 	Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
 	depth = depth + 1;
-	glm::vec3 eyeDir = (secondaryRay.direction - intersection.intersectionPoint);
+	glm::vec3 eyeDir = (ray.origin - intersection.intersectionPoint);
 	glm::vec3 normWO = glm::normalize(eyeDir);
 	glm::vec3 reflectVector = glm::reflect(normWO, intersection.hitObjectNormal);
 
-	float reflectVecDotWi = glm::dot(reflectVector, glm::normalize(w_i));
-	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWi, intersection.hitObjectShininess));
-	glm::vec3 accumCol = 2.0f * (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * glm::dot(secondaryIntersection.hitObjectNormal, eyeDir);
+	float reflectVecDotWi = glm::max(glm::dot(reflectVector, w_i), 0.0f);
+	glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * std::max(glm::pow(reflectVecDotWi, intersection.hitObjectShininess), 0.0f);
+	glm::vec3 accumCol = (float)M_PI * PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection) * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f);
 	return accumCol;
 }
 
@@ -962,7 +964,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					float jitterX = 0.0f;
 					float jitterY = 0.0f;
 					int depth = 0;
-					if (spp > 1)
+					if (pixSample > 0)
 					{
 						// Jitter the ray within the pixel for anti-aliasing
 						jitterX = RandFloat() * 2.0f - 1.0f; // Random value in [-1, 1]
@@ -982,17 +984,18 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 
 					if (!intersection.didHit)
 					{
-						col += glm::vec3(0.0f);
+						accumCol += glm::vec3(0.0f);
 					}
 					else
 					{
-						col += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection) + MonteCarloFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
 
 					}
+				
 				}
-
+				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
+				col = accumCol;
 			}
-
 			int idx = (y * width + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
 			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
