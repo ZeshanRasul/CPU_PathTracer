@@ -876,7 +876,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		return glm::vec3(0.0f);
 	}
 
-	if (depth >= maxDepth || intersection.isLight)
+	if (depth >= maxDepthight)
 	{
 		return intersection.hitObjectEmission;
 	}
@@ -988,7 +988,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					}
 					else
 					{
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection) + MonteCarloFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection) + MonteCarloFindColor(&grid, ray, &scene, &cam, depth, 1, lightStratify, intersection);
 
 					}
 				
