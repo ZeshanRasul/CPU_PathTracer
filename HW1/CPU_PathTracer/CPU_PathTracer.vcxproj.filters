@@ -76,6 +76,8 @@
     <None Include="Release\direct9.test" />
     <None Include="Release\dragon.test" />
     <None Include="Release\sphere.test" />
+    <None Include="Release\cornellSimple.test" />
+    <None Include="Debug\cornellSimple.test" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png">

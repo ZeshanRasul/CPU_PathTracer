@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <thread>
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include "glm/gtc/matrix_transform.hpp"
@@ -14,7 +15,26 @@
 #include "Ray.h"
 #include "Intersection.h"
 #include "Scene.h"
+#include <mutex>
+#include <atomic>
+#include <sstream>
+#include <random>
 
+static inline float RandFloat()
+{
+	thread_local std::mt19937 rng(std::random_device{}());
+	thread_local std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+	return dist(rng);
+}
+
+std::mutex g_logMutex;
+std::atomic<int> g_rowsCompleted = 0;
+
+void LogLine(const std::string& message)
+{
+	std::lock_guard<std::mutex> lock(g_logMutex);
+	std::cout << message << std::endl;
+}
 
 int bounces = 0;
 int maxDepth = 5;
@@ -56,9 +76,9 @@ struct GridCell
 struct UniformGrid
 {
 	AABB bounds;
-	int nx = 32;
-	int ny = 32;
-	int nz = 32;
+	int nx = 15;
+	int ny = 15;
+	int nz = 15;
 	glm::vec3 cellSize = glm::vec3(1.0f);
 	std::vector<GridCell> cells;
 
@@ -587,8 +607,8 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 					NULL
 				);
 
-		//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
-		//	glm::vec3 tBetaGamma = intersection.t;
+			//	glm::vec3 tBetaGamma = CheckTriangleIntersection(hitTri, ray);
+			//	glm::vec3 tBetaGamma = intersection.t;
 			float tTriangle = intersection.t;
 			glm::vec3 intersectionPoint = ray.origin + ray.direction * tTriangle;
 
@@ -774,7 +794,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			glm::dvec3 dab = glm::dvec3(light->ab);
 			glm::dvec3 dac = glm::dvec3(light->ac);
 			double angleABd = glm::clamp(glm::dot(glm::normalize(dab), glm::normalize(dac)), -1.0, 1.0);
-			double lightAread = glm::length(glm::cross(dab, dac)); 
+			double lightAread = glm::length(glm::cross(dab, dac));
 			float lightArea = static_cast<float>(lightAread);
 			glm::vec3 perLight = glm::vec3(0.0f);
 
@@ -786,8 +806,8 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				{
 					for (int j = 0; j < M; j++)
 					{
-						float u1 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
-						float u2 = static_cast <float>(rand()) / static_cast <float>(RAND_MAX);
+						float u1 = RandFloat();
+						float u2 = RandFloat();
 						glm::vec3 sampleLightPoint = light->a + ((j + u1) / M) * light->ab + ((i + u2) / M) * light->ac;
 						glm::vec3 dir = glm::normalize(sampleLightPoint - intersection.intersectionPoint);
 						glm::vec3 origin = intersection.intersectionPoint + (intersection.hitObjectNormal * 0.01f);
@@ -848,6 +868,44 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 }
 
 
+
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, glm::vec3 accumCol)
+{
+	if (!intersection.didHit)
+	{
+		return glm::vec3(1.0f);
+	}
+
+	if (depth >= maxDepth || intersection.isLight)
+	{
+		return intersection.hitObjectEmission;
+	}
+
+	float xi_1 = RandFloat();
+	float xi_2 = RandFloat();
+
+	float theta = glm::acos(xi_1);
+	float phi = 2.0f * M_PI * xi_2;
+
+	glm::vec3 s = glm::vec3(0.0f);
+	s.x = glm::cos(phi) * glm::sin(theta);
+	s.y = glm::sin(phi) * glm::sin(theta);
+	s.z = glm::cos(theta);
+
+	glm::vec3 w = glm::normalize(intersection.hitObjectNormal);
+	glm::vec3 u = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0), w));
+	glm::vec3 v = glm::cross(w, u);
+
+	glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
+
+	Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.01f, glm::normalize(w_i));
+	Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
+	depth = depth + 1;
+	accumCol = accumCol + PathTracerFindColor(grid, secondaryRay, scene, camera, depth, samples, stratify, secondaryIntersection, accumCol);
+	return accumCol;
+}
+
+
 struct Vertex
 {
 	glm::vec3 position;
@@ -856,12 +914,88 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp)
+{
+	{
+		std::ostringstream oss;
+		oss << "Thread " << std::this_thread::get_id()
+			<< " rows [" << heightChunkStart << ", " << heightChunk << ")";
+		LogLine(oss.str());
+	}
+	for (int y = heightChunkStart; y < heightChunk; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+
+			glm::vec3 col(0.0f);
+			if (integrator != "pathtracer")
+			{
+
+				int depth = 0;
+				Ray ray = ShootRay(cam, x, y, width, height);
+				Intersection intersection = FindIntersection(&grid, &scene, ray, false);
+				if (integrator == "raytracer")
+				{
+					col = FindColor(&grid, ray, &scene, &cam, depth);
+				}
+				else if (integrator == "analyticdirect")
+				{
+					col = AnalyticFindColor(&grid, ray, &scene, &cam);
+				}
+				else if (integrator == "direct")
+				{
+					col = MonteCarloFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection);
+				}
+			}
+			else if (integrator == "pathtracer")
+			{
+				glm::vec3 accumCol(0.0f);
+				for (int pixSample = 0; pixSample < spp; pixSample++)
+				{
+				}
+				int depth = 0;
+				float jitterX = RandFloat() * 2.0f - 0.5f;
+				float jitterY = RandFloat() * 2.0f - 0.5f;
+				float pixSampleX = std::max(x + jitterX, 0.0f);
+				float pixSampleY = std::max(y + jitterY, 0.0f);
+				Ray ray = ShootRay(cam, pixSampleX, pixSampleY, width, height);
+				Intersection intersection = FindIntersection(&grid, &scene, ray, false);
+
+				if (!intersection.didHit)
+				{
+					col = glm::vec3(0.0f);
+				}
+				else
+				{
+					col += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, accumCol);
+
+				}
+
+			}
+
+			int idx = (y * width + x) * 3;
+			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
+			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
+			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
+		//	std::cout << "Pixel (" << x << ", " << y << ") of total (" << width << ", " << height << ")" << std::endl;
+		}
+		int completed = ++g_rowsCompleted;
+		if ((completed % 20) == 0 || completed == height)
+		{
+			std::ostringstream oss;
+			oss << "Progress: " << completed << " / " << height << " rows";
+			LogLine(oss.str());
+		}
+	}
+
+	return 1;
+}
 int main() {
 	std::string fname = "outfile.png";
 	FreeImage_Initialise();
 
 	glm::vec3 eyePos = glm::vec3(0.0f), center = glm::vec3(0.0f), up = glm::vec3(0.0f);
-	int width = 640;
+	int width = 480;
 	int height = 480;
 	float eyeX, eyeY, eyeZ;
 	float centerX, centerY, centerZ;
@@ -881,11 +1015,13 @@ int main() {
 	bool lightStratify = false;
 	std::string integrator;
 	glm::vec3 a, ab, ac, intensity;
+	int spp = 2;
+
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornell.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellSimple.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1116,6 +1252,12 @@ int main() {
 				lightStratify = false;
 			}
 		}
+
+		if (cmd == "spp")
+		{
+			std::cout << line << std::endl;
+			iss >> spp;
+		}
 	}
 
 	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
@@ -1134,43 +1276,36 @@ int main() {
 
 	glm::vec3 col = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	for (int y = 0; y < IMAGE_HEIGHT; y++)
+
+	unsigned int numThreads = std::thread::hardware_concurrency();
+	if (numThreads == 0) numThreads = 1;
+	// don't spawn more threads than rows (optional)
+	if (numThreads > static_cast<unsigned int>(IMAGE_HEIGHT)) numThreads = static_cast<unsigned int>(IMAGE_HEIGHT);
+
+	int baseChunk = IMAGE_HEIGHT / static_cast<int>(numThreads);
+	int remainder = IMAGE_HEIGHT % static_cast<int>(numThreads);
+
+	std::vector<std::thread> threads;
+	threads.reserve(numThreads);
+
+	for (unsigned int i = 0; i < numThreads; ++i)
 	{
-		for (int x = 0; x < IMAGE_WIDTH; x++)
-		{
-			int depth = 0;
-			Ray ray = ShootRay(cam, x, y, IMAGE_WIDTH, IMAGE_HEIGHT);
-			Intersection intersection = FindIntersection(grid, scene, ray, false);
-			if (integrator == "raytracer")
-			{
-				col = FindColor(grid, ray, scene, &cam, depth);
-			}
-			else if (integrator == "analyticdirect")
-			{
-				col = AnalyticFindColor(grid, ray, scene, &cam);
-			}
-			else if (integrator == "direct")
-			{
-				col = MonteCarloFindColor(grid, ray, scene, &cam, depth, lightSamples, lightStratify, intersection);
-			}
-			int idx = (y * IMAGE_WIDTH + x) * 3;
-			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
-			// Fix for C6386 and C4244:
-			// - Ensure idx is always within bounds: idx + 0, idx + 1, idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3
-			// - Explicitly cast to BYTE to avoid C4244 warning
+		int start = static_cast<int>(i) * baseChunk + std::min(static_cast<int>(i), remainder);
+		int extra = (static_cast<int>(i) < remainder) ? 1 : 0;
+		int end = start + baseChunk + extra;
 
-			if (idx + 2 < IMAGE_WIDTH * IMAGE_HEIGHT * 3) {
-				pixels[idx + 0] = static_cast<BYTE>(std::min(std::max(col.b * 255.0f, 0.0f), 255.0f));
-				pixels[idx + 1] = static_cast<BYTE>(std::min(std::max(col.g * 255.0f, 0.0f), 255.0f));
-				pixels[idx + 2] = static_cast<BYTE>(std::min(std::max(col.r * 255.0f, 0.0f), 255.0f));
-			}
-			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
-			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
-			//std::cout << "Pixel (" << x << ", " << y << ") of total (" << IMAGE_WIDTH << ", " << IMAGE_HEIGHT << ")" << std::endl;
-			if ((y % 10) == 0) std::cout << "Row " << y << " / " << IMAGE_HEIGHT << "\n";
-		}
+		if (start >= end) continue; // nothing to do for this thread
 
+		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp);
 	}
+
+	for (auto& t : threads)
+	{
+		if (t.joinable())
+			t.join();
+	}
+//	RenderPixels(0, IMAGE_HEIGHT, *scene, cam, integrator, IMAGE_WIDTH, IMAGE_HEIGHT, *grid, lightSamples, lightStratify, pixels, 1);
+
 	FIBITMAP* img = FreeImage_ConvertFromRawBits(pixels, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_WIDTH * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
 
 	FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
@@ -1178,3 +1313,4 @@ int main() {
 	free(pixels);
 	FreeImage_DeInitialise();
 }
+
