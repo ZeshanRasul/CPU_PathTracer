@@ -72,33 +72,15 @@ struct AABB
 		min = glm::min(min, other.min);
 		max = glm::max(max, other.max);
 	}
-};
 
-struct GridCell
-{
-	std::vector<int> sphereIndices;
-	std::vector<int> triangleIndices;
-};
-
-struct UniformGrid
-{
-	AABB bounds;
-	int nx = 10;
-	int ny = 10;
-	int nz = 10;
-	glm::vec3 cellSize = glm::vec3(1.0f);
-	std::vector<GridCell> cells;
-
-	int Index(int x, int y, int z) const
+	glm::vec3 Centroid() const
 	{
-		return x + nx * (y + ny * z);
+		return 0.5f * (min + max);
 	}
 
-	bool IsValidCell(int x, int y, int z) const
+	glm::vec3 Extent() const
 	{
-		return x >= 0 && x < nx &&
-			y >= 0 && y < ny &&
-			z >= 0 && z < nz;
+		return max - min;
 	}
 };
 
@@ -109,7 +91,7 @@ AABB ComputeTriangleAABB(const Triangle* t)
 	box.Expand(t->vertex1);
 	box.Expand(t->vertex2);
 
-	glm::vec3 eps(3);
+	glm::vec3 eps(1e-4f);
 	box.min -= eps;
 	box.max += eps;
 
@@ -119,9 +101,24 @@ AABB ComputeTriangleAABB(const Triangle* t)
 AABB ComputeSphereAABB(const Sphere* s)
 {
 	AABB box;
-	glm::vec3 r(s->radius);
-	box.min = glm::vec3(s->transform * glm::vec4(s->center, 1.0f)) - r;
-	box.max = glm::vec3(s->transform * glm::vec4(s->center, 1.0f)) + r;
+
+	glm::vec3 localCenter = s->center;
+	glm::vec3 worldCenter = glm::vec3(s->transform * glm::vec4(localCenter, 1.0f));
+
+	glm::vec3 localRadius(s->radius, s->radius, s->radius);
+
+	glm::vec3 worldX = glm::vec3(s->transform * glm::vec4(localRadius.x, 0.0f, 0.0f, 0.0f));
+	glm::vec3 worldY = glm::vec3(s->transform * glm::vec4(0.0f, localRadius.y, 0.0f, 0.0f));
+	glm::vec3 worldZ = glm::vec3(s->transform * glm::vec4(0.0f, 0.0f, localRadius.z, 0.0f));
+
+	glm::vec3 extent(
+		std::abs(worldX.x) + std::abs(worldY.x) + std::abs(worldZ.x),
+		std::abs(worldX.y) + std::abs(worldY.y) + std::abs(worldZ.y),
+		std::abs(worldX.z) + std::abs(worldY.z) + std::abs(worldZ.z));
+
+	box.min = worldCenter - extent;
+	box.max = worldCenter + extent;
+
 	return box;
 }
 
@@ -146,90 +143,6 @@ AABB ComputeSceneBounds(Scene* scene)
 	return sceneBox;
 }
 
-glm::ivec3 WorldToCell(const UniformGrid& grid, const glm::vec3& p)
-{
-	glm::vec3 rel = (p - grid.bounds.min) / grid.cellSize;
-
-	glm::ivec3 cell(
-		static_cast<int>(std::floor(rel.x)),
-		static_cast<int>(std::floor(rel.y)),
-		static_cast<int>(std::floor(rel.z))
-	);
-
-	cell.x = std::clamp(cell.x, 0, grid.nx - 1);
-	cell.y = std::clamp(cell.y, 0, grid.ny - 1);
-	cell.z = std::clamp(cell.z, 0, grid.nz - 1);
-
-	return cell;
-}
-
-void BuildUniformGrid(UniformGrid& grid, Scene* scene)
-{
-	std::vector<Sphere*>& spheres = scene->GetSpheresRef();
-	std::vector<Triangle*>& triangles = scene->GetTriangles();
-
-	grid.bounds = ComputeSceneBounds(scene);
-
-	glm::vec3 extent = grid.bounds.max - grid.bounds.min;
-	const float minExtent = 1e-3;
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		if (extent[axis] < minExtent)
-		{
-			float expand = (minExtent - extent[axis]) * 0.5f;
-			grid.bounds.min[axis] -= expand;
-			grid.bounds.max[axis] += expand;
-		}
-	}
-
-
-	grid.cellSize = (grid.bounds.max - grid.bounds.min) /
-		glm::vec3((float)grid.nx, (float)grid.ny, (float)grid.nz);
-
-	grid.cells.clear();
-	grid.cells.resize(grid.nx * grid.ny * grid.nz);
-
-	// Insert spheres
-	for (int i = 0; i < (int)spheres.size(); ++i)
-	{
-		AABB sphereBox = ComputeSphereAABB(spheres[i]);
-
-		glm::ivec3 minCell = WorldToCell(grid, sphereBox.min);
-		glm::ivec3 maxCell = WorldToCell(grid, sphereBox.max);
-
-		for (int z = minCell.z; z <= maxCell.z; ++z)
-		{
-			for (int y = minCell.y; y <= maxCell.y; ++y)
-			{
-				for (int x = minCell.x; x <= maxCell.x; ++x)
-				{
-					grid.cells[grid.Index(x, y, z)].sphereIndices.push_back(i);
-				}
-			}
-		}
-	}
-
-	// Insert triangles
-	for (int i = 0; i < (int)triangles.size(); ++i)
-	{
-		AABB triBox = ComputeTriangleAABB(triangles[i]);
-
-		glm::ivec3 minCell = WorldToCell(grid, triBox.min);
-		glm::ivec3 maxCell = WorldToCell(grid, triBox.max);
-
-		for (int z = minCell.z; z <= maxCell.z; ++z)
-		{
-			for (int y = minCell.y; y <= maxCell.y; ++y)
-			{
-				for (int x = minCell.x; x <= maxCell.x; ++x)
-				{
-					grid.cells[grid.Index(x, y, z)].triangleIndices.push_back(i);
-				}
-			}
-		}
-	}
-}
-
 bool IntersectAABB(const Ray& ray, const AABB& box, float& tEnter, float& tExit)
 {
 	float tMin = 0.0f;
@@ -244,9 +157,10 @@ bool IntersectAABB(const Ray& ray, const AABB& box, float& tEnter, float& tExit)
 
 		if (std::abs(d) < 1e-8f)
 		{
-			// Ray parallel to slab: must already be inside
 			if (o < bmin || o > bmax)
+			{
 				return false;
+			}
 			continue;
 		}
 
@@ -255,18 +169,164 @@ bool IntersectAABB(const Ray& ray, const AABB& box, float& tEnter, float& tExit)
 		float t1 = (bmax - o) * invD;
 
 		if (t0 > t1)
+		{
 			std::swap(t0, t1);
+		}
 
 		tMin = std::max(tMin, t0);
 		tMax = std::min(tMax, t1);
 
 		if (tMax < tMin)
+		{
 			return false;
+		}
 	}
 
 	tEnter = tMin;
 	tExit = tMax;
 	return true;
+}
+
+enum class BVHPrimitiveType
+{
+	Sphere,
+	Triangle
+};
+
+struct BVHPrimitive
+{
+	BVHPrimitiveType type;
+	int index = -1;
+	AABB bounds;
+	glm::vec3 centroid = glm::vec3(0.0f);
+};
+
+struct BVHNode
+{
+	AABB bounds;
+	int left = -1;
+	int right = -1;
+	int start = 0;
+	int count = 0;
+
+	bool IsLeaf() const
+	{
+		return left == -1 && right == -1;
+	}
+};
+
+struct UniformGrid
+{
+	AABB bounds;
+	std::vector<BVHPrimitive> primitives;
+	std::vector<BVHNode> nodes;
+	int root = -1;
+};
+
+static const int BVH_LEAF_SIZE = 4;
+
+int BuildBVHRecursive(UniformGrid& bvh, int start, int end)
+{
+	BVHNode node;
+	AABB nodeBounds;
+	AABB centroidBounds;
+
+	for (int i = start; i < end; ++i)
+	{
+		nodeBounds.Expand(bvh.primitives[i].bounds);
+		centroidBounds.Expand(bvh.primitives[i].centroid);
+	}
+
+	node.bounds = nodeBounds;
+
+	int count = end - start;
+	int nodeIndex = static_cast<int>(bvh.nodes.size());
+	bvh.nodes.push_back(node);
+
+	if (count <= BVH_LEAF_SIZE)
+	{
+		bvh.nodes[nodeIndex].start = start;
+		bvh.nodes[nodeIndex].count = count;
+		return nodeIndex;
+	}
+
+	glm::vec3 extent = centroidBounds.Extent();
+	int axis = 0;
+	if (extent.y > extent.x && extent.y >= extent.z)
+	{
+		axis = 1;
+	}
+	else if (extent.z > extent.x && extent.z >= extent.y)
+	{
+		axis = 2;
+	}
+
+	if (extent[axis] < 1e-8f)
+	{
+		bvh.nodes[nodeIndex].start = start;
+		bvh.nodes[nodeIndex].count = count;
+		return nodeIndex;
+	}
+
+	int mid = start + count / 2;
+
+	std::nth_element(
+		bvh.primitives.begin() + start,
+		bvh.primitives.begin() + mid,
+		bvh.primitives.begin() + end,
+		[axis](const BVHPrimitive& a, const BVHPrimitive& b)
+		{
+			return a.centroid[axis] < b.centroid[axis];
+		});
+
+	int leftChild = BuildBVHRecursive(bvh, start, mid);
+	int rightChild = BuildBVHRecursive(bvh, mid, end);
+
+	bvh.nodes[nodeIndex].left = leftChild;
+	bvh.nodes[nodeIndex].right = rightChild;
+	bvh.nodes[nodeIndex].count = 0;
+
+	return nodeIndex;
+}
+
+void BuildUniformGrid(UniformGrid& grid, Scene* scene)
+{
+	grid.primitives.clear();
+	grid.nodes.clear();
+	grid.root = -1;
+
+	std::vector<Sphere*>& spheres = scene->GetSpheresRef();
+	std::vector<Triangle*>& triangles = scene->GetTriangles();
+
+	grid.primitives.reserve(spheres.size() + triangles.size());
+
+	for (int i = 0; i < static_cast<int>(spheres.size()); ++i)
+	{
+		BVHPrimitive prim;
+		prim.type = BVHPrimitiveType::Sphere;
+		prim.index = i;
+		prim.bounds = ComputeSphereAABB(spheres[i]);
+		prim.centroid = prim.bounds.Centroid();
+		grid.primitives.push_back(prim);
+	}
+
+	for (int i = 0; i < static_cast<int>(triangles.size()); ++i)
+	{
+		BVHPrimitive prim;
+		prim.type = BVHPrimitiveType::Triangle;
+		prim.index = i;
+		prim.bounds = ComputeTriangleAABB(triangles[i]);
+		prim.centroid = prim.bounds.Centroid();
+		grid.primitives.push_back(prim);
+	}
+
+	if (grid.primitives.empty())
+	{
+		return;
+	}
+
+	grid.bounds = ComputeSceneBounds(scene);
+	grid.root = BuildBVHRecursive(grid, 0, static_cast<int>(grid.primitives.size()));
 }
 
 float CheckSphereIntersection(Sphere* sphere, Ray& ray)
@@ -338,14 +398,6 @@ glm::vec3 CheckTriangleIntersection(Triangle* triangle, Ray& ray)
 		return glm::vec3(INFINITY, 0.0f, 0.0f);
 	}
 
-	//glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
-
-	//if (glm::dot(faceNormal, ray.direction) > 0.0f)
-	//{
-	//	faceNormal = -faceNormal;
-	//}
-	//triangle->SetNormal(faceNormal);
-
 	return glm::vec3(t, beta, gamma);
 }
 
@@ -355,128 +407,125 @@ bool TraverseUniformGrid(
 	Ray& ray,
 	Intersection& closestHit)
 {
-	float tEnter, tExit;
-	if (!IntersectAABB(ray, grid.bounds, tEnter, tExit))
+	if (grid.root == -1)
+	{
 		return false;
+	}
+
+	float rootEnter, rootExit;
+	if (!IntersectAABB(ray, grid.nodes[grid.root].bounds, rootEnter, rootExit))
+	{
+		return false;
+	}
 
 	std::vector<Sphere*>& spheres = scene->GetSpheresRef();
 	std::vector<Triangle*>& triangles = scene->GetTriangles();
 
-	glm::vec3 startPoint = ray.origin + tEnter * ray.direction;
-	glm::ivec3 cell = WorldToCell(grid, startPoint);
-
-	glm::ivec3 step(0);
-	glm::vec3 tMax(0.0f);
-	glm::vec3 tDelta(0.0f);
-
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		float d = ray.direction[axis];
-
-		if (d > 0.0f)
-		{
-			step[axis] = 1;
-			float nextBoundary = grid.bounds.min[axis] + (cell[axis] + 1) * grid.cellSize[axis];
-			tMax[axis] = tEnter + (nextBoundary - startPoint[axis]) / d;
-			tDelta[axis] = grid.cellSize[axis] / d;
-		}
-		else if (d < 0.0f)
-		{
-			step[axis] = -1;
-			float nextBoundary = grid.bounds.min[axis] + cell[axis] * grid.cellSize[axis];
-			tMax[axis] = tEnter + (nextBoundary - startPoint[axis]) / d;
-			tDelta[axis] = -grid.cellSize[axis] / d;
-		}
-		else
-		{
-			step[axis] = 0;
-			tMax[axis] = std::numeric_limits<float>::infinity();
-			tDelta[axis] = std::numeric_limits<float>::infinity();
-		}
-	}
-
 	bool hitAnything = false;
-	float bestT = tExit;
+	float bestT = std::numeric_limits<float>::infinity();
 
-	while (grid.IsValidCell(cell.x, cell.y, cell.z))
+	int stack[128];
+	int stackTop = 0;
+	stack[stackTop++] = grid.root;
+
+	while (stackTop > 0)
 	{
-		const GridCell& currentCell = grid.cells[grid.Index(cell.x, cell.y, cell.z)];
+		int nodeIndex = stack[--stackTop];
+		const BVHNode& node = grid.nodes[nodeIndex];
 
-		// Test spheres
-		for (int sphereIndex : currentCell.sphereIndices)
+		float nodeEnter, nodeExit;
+		if (!IntersectAABB(ray, node.bounds, nodeEnter, nodeExit))
 		{
-			glm::mat4 invTransform = glm::inverse(spheres[sphereIndex]->transform);
+			continue;
+		}
 
-			Ray transformedRay(
-				glm::vec3(invTransform * glm::vec4(ray.origin, 1.0f)),
-				glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
+		if (nodeEnter > bestT)
+		{
+			continue;
+		}
 
-			float sphereTLocal = CheckSphereIntersection(spheres[sphereIndex], transformedRay);
-
-			if (sphereTLocal < INFINITY)
+		if (node.IsLeaf())
+		{
+			for (int i = 0; i < node.count; ++i)
 			{
-				glm::vec3 localHitPoint = transformedRay.origin + transformedRay.direction * sphereTLocal;
-				glm::vec3 worldHitPoint = glm::vec3(spheres[sphereIndex]->transform * glm::vec4(localHitPoint, 1.0f));
-				float worldT = glm::length(worldHitPoint - ray.origin);
+				const BVHPrimitive& prim = grid.primitives[node.start + i];
 
-				if (worldT < bestT)
+				if (prim.type == BVHPrimitiveType::Sphere)
 				{
-					bestT = worldT;
-					closestHit.t = worldT;
-					closestHit.sphereIndex = sphereIndex;
-					closestHit.triangleIndex = -1;
-					closestHit.hitObjectIsSphere = true;
-					hitAnything = true;
+					Sphere* sphere = spheres[prim.index];
+					glm::mat4 invTransform = glm::inverse(sphere->transform);
+
+					Ray transformedRay(
+						glm::vec3(invTransform * glm::vec4(ray.origin, 1.0f)),
+						glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
+
+					float sphereTLocal = CheckSphereIntersection(sphere, transformedRay);
+					if (sphereTLocal < INFINITY)
+					{
+						glm::vec3 localHitPoint = transformedRay.origin + transformedRay.direction * sphereTLocal;
+						glm::vec3 worldHitPoint = glm::vec3(sphere->transform * glm::vec4(localHitPoint, 1.0f));
+						float worldT = glm::dot(worldHitPoint - ray.origin, ray.direction);
+
+						if (worldT > 0.0f && worldT < bestT)
+						{
+							bestT = worldT;
+							closestHit.t = worldT;
+							closestHit.sphereIndex = prim.index;
+							closestHit.triangleIndex = -1;
+							closestHit.hitObjectIsSphere = true;
+							hitAnything = true;
+						}
+					}
+				}
+				else
+				{
+					Triangle* triangle = triangles[prim.index];
+					glm::vec3 tBetaGamma = CheckTriangleIntersection(triangle, ray);
+					float triT = tBetaGamma.x;
+
+					if (triT > 0.0f && triT < bestT && triT < INFINITY)
+					{
+						bestT = triT;
+						closestHit.t = triT;
+						closestHit.sphereIndex = -1;
+						closestHit.triangleIndex = prim.index;
+						closestHit.hitObjectIsSphere = false;
+						hitAnything = true;
+					}
 				}
 			}
 		}
-
-		// Test triangles
-		for (int triangleIndex : currentCell.triangleIndices)
-		{
-			glm::vec3 tBetaGamma = CheckTriangleIntersection(triangles[triangleIndex], ray);
-			float triT = tBetaGamma.x;
-
-			if (triT > 0.0f && triT < bestT && triT < INFINITY)
-			{
-				bestT = triT;
-				closestHit.t = triT;
-				closestHit.sphereIndex = -1;
-				closestHit.triangleIndex = triangleIndex;
-				closestHit.hitObjectIsSphere = false;
-				hitAnything = true;
-			}
-		}
-
-		float nextCrossing = std::min(tMax.x, std::min(tMax.y, tMax.z));
-
-		if (hitAnything && bestT < nextCrossing)
-			break;
-
-		if (tMax.x < tMax.y)
-		{
-			if (tMax.x < tMax.z)
-			{
-				cell.x += step.x;
-				tMax.x += tDelta.x;
-			}
-			else
-			{
-				cell.z += step.z;
-				tMax.z += tDelta.z;
-			}
-		}
 		else
 		{
-			if (tMax.y < tMax.z)
+			const BVHNode& leftNode = grid.nodes[node.left];
+			const BVHNode& rightNode = grid.nodes[node.right];
+
+			float leftEnter, leftExit;
+			float rightEnter, rightExit;
+
+			bool hitLeft = IntersectAABB(ray, leftNode.bounds, leftEnter, leftExit) && leftEnter <= bestT;
+			bool hitRight = IntersectAABB(ray, rightNode.bounds, rightEnter, rightExit) && rightEnter <= bestT;
+
+			if (hitLeft && hitRight)
 			{
-				cell.y += step.y;
-				tMax.y += tDelta.y;
+				if (leftEnter < rightEnter)
+				{
+					stack[stackTop++] = node.right;
+					stack[stackTop++] = node.left;
+				}
+				else
+				{
+					stack[stackTop++] = node.left;
+					stack[stackTop++] = node.right;
+				}
 			}
-			else
+			else if (hitLeft)
 			{
-				cell.z += step.z;
-				tMax.z += tDelta.z;
+				stack[stackTop++] = node.left;
+			}
+			else if (hitRight)
+			{
+				stack[stackTop++] = node.right;
 			}
 		}
 	}
@@ -484,7 +533,7 @@ bool TraverseUniformGrid(
 	return hitAnything;
 }
 
-Ray ShootRay(const Camera& cam, const int i, const int j, const int width, const int height)
+Ray ShootRay(const Camera& cam, int i, int j, const int width, const int height)
 {
 	glm::vec3 w = glm::normalize(cam.getEyePos() - cam.getCenter());
 	glm::vec3 u = glm::normalize(glm::cross(cam.getUp(), w));
@@ -1162,7 +1211,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/cornellRR.test");
+	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/dragon.test");
 	std::string line;
 
 	while (std::getline(file, line))
