@@ -1101,17 +1101,24 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			glm::vec3 u = glm::normalize(glm::cross(helper, w));
 			glm::vec3 v = glm::cross(w, u);
 
-			w_i = s.x * u + s.y * v + s.z * w;	
+			Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
+			Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
+			glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+			glm::vec3 wi = glm::normalize(w_i);
 
-			glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
+			glm::vec3 R = glm::reflect(-wo, intersection.hitObjectNormal);
 			float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
 
 
-			if (glm::dot(w_i, intersection.hitObjectNormal) <= 0.0f)
+			w_i = s.x * u + s.y * v + s.z * w;	
+
+
+
+			if (glm::dot(w_i, intersection.hitObjectNormal) >= 0.0f)
 			{
 				brdf +=
-					(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI) +
-					t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+					(1 - t) * (intersection.hitObjectDiffuse / (float)M_PI) + (t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec));
+	
 			}
 			else
 			{
@@ -1125,7 +1132,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			float phi = 2.0f * (float)M_PI * xi2;
 
 			float theta_diffuse = glm::acos(glm::sqrt(xi1));
-			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / intersection.hitObjectShininess + 1));
+			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
 
 			glm::vec3 s = glm::vec3(0.0f);
 			s.x = glm::cos(phi) * glm::sin(theta_diffuse);
@@ -1133,6 +1140,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			s.z = glm::cos(theta_diffuse);
 
 			w_i = s.x * u + s.y * v + s.z * w;
+
+			Ray secondaryRay(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
+			Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
+			glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+			glm::vec3 wi = glm::normalize(w_i);
+
+			glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
+			float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
+
 
 			brdf =
 				(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI);
@@ -1144,10 +1160,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
 
-			brdf +=
-				(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI) +
-				t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
-
+			brdf = brdf + (t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec));
 
 		}
 
@@ -1177,7 +1190,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			}
 			else
 			{
-				throughput *= brdf * ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI));
+				throughput *= brdf * ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI)) * ((t * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec));
 			}
 		}
 
