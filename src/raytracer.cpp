@@ -1,4 +1,4 @@
-#include "Freeimage.h"
+#include "../include/FreeImage.h"
 #include <string>
 #include <cstdlib> 
 #include <iostream>
@@ -8,8 +8,8 @@
 #include <thread>
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/constants.hpp"
+#include "../include/glm/gtc/matrix_transform.hpp"
+#include "../include/glm/gtc/constants.hpp"
 
 #include "Camera.h"
 #include "Ray.h"
@@ -939,7 +939,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput, std::string importanceSampling)
 {
 	glm::vec3 accumCol(0.0f);
 	if (!intersection.didHit)
@@ -1026,8 +1026,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float xi_2 = RandFloat();
 
 
-	float theta = glm::acos(xi_1);
 	float phi = 2.0f * (float)M_PI * xi_2;
+	float z = glm::sqrt(xi_1);
+	float theta = glm::acos(z);
 
 	glm::vec3 s = glm::vec3(0.0f);
 	s.x = glm::cos(phi) * glm::sin(theta);
@@ -1048,13 +1049,35 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
 	float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
-	glm::vec3 brdf =
-		(intersection.hitObjectDiffuse / (float)M_PI) +
-		(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
+
+	glm::vec3 brdf;
+
+	if (importanceSampling == "hemisphere")
+	{
+		brdf =
+			(intersection.hitObjectDiffuse / (float)M_PI) +
+			(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
+
+	}
+	else if (importanceSampling == "cosine")
+	{
+
+		brdf =
+			(intersection.hitObjectDiffuse / (float)M_PI) +
+			(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / ( 2.0f * (float)M_PI)) * spec);
+	}
 
 	if (useRR)
 	{
-		throughput *= brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * (2.0f * (float)M_PI);
+		if (importanceSampling == "hemisphere")
+		{
+			throughput *= brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * (2.0f * (float)M_PI);
+
+		}
+		else if (importanceSampling == "cosine")
+		{
+			throughput *= brdf * (float)M_PI;
+		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
 
@@ -1068,7 +1091,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		}
 	}
 
-	accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput);
+	accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling);
 	return accumCol;
 
 
@@ -1084,7 +1107,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling)
 {
 	{
 		std::ostringstream oss;
@@ -1150,7 +1173,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					else
 					{
 						glm::vec3 throughput = glm::vec3(1.0f);
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput, importanceSampling);
 
 
 
@@ -1207,11 +1230,12 @@ int main() {
 	int spp = 1;
 	bool useNEE = false;
 	bool useRR = false;
+	std::string importanceSampling;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/HW1/CPU_PathTracer/Release/dragon.test");
+	std::ifstream file("C:/dev/CSE168x/Release/cornellCosine.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1468,6 +1492,12 @@ int main() {
 			iss >> shouldUseRR;
 			useRR = shouldUseRR == "on" ? true : false;
 		}
+
+		if (cmd == "importancesampling")
+		{
+			std::cout << line << std::endl;
+			iss >> importanceSampling;
+		}
 	}
 
 	Camera cam(glm::vec3(eyeX, eyeY, eyeZ), glm::vec3(centerX, centerY, centerZ), glm::vec3(upX, upY, upZ), glm::radians(fovY));
@@ -1506,7 +1536,7 @@ int main() {
 
 		if (start >= end) continue; // nothing to do for this thread
 
-		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE, useRR);
+		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE, useRR, importanceSampling);
 	}
 
 	for (auto& t : threads)

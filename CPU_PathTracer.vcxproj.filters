@@ -70,8 +70,8 @@
     <None Include="Release\scene7.test" />
     <None Include="Release\analytic.test" />
     <None Include="Release\cornell.test" />
-    <None Include="Release\CPU_PathTracer.exe" />
-    <None Include="Release\CPU_PathTracer.pdb" />
+    <None Include="x64\Release\CPU_PathTracer.exe" />
+    <None Include="x64\Release\CPU_PathTracer.pdb" />
     <None Include="Release\direct3x3.test" />
     <None Include="Release\direct9.test" />
     <None Include="Release\dragon.test" />
@@ -80,6 +80,17 @@
     <None Include="Debug\cornellSimple.test" />
     <None Include="Release\cornellNEE.test" />
     <None Include="Release\cornellRR.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellBRDF.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellCosine.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellMIS.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\dragon.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\ggx.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\mis.test" />
+    <None Include="Release\cornellBRDF.test" />
+    <None Include="Release\cornellCosine.test" />
+    <None Include="Release\cornellMIS.test" />
+    <None Include="Release\ggx.test" />
+    <None Include="Release\mis.test" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="outfile.png">
@@ -136,5 +147,13 @@
     <Image Include="cornellRR.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="cornellCosine.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="FreeImage.lib" />
+    <Library Include="Release\FreeImage.lib" />
+    <Library Include="lib\FreeImage.lib" />
   </ItemGroup>
 </Project>

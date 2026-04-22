@@ -76,14 +76,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);FreeImage.lib;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);FreeImage.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -94,14 +95,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);FreeImage.lib;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);FreeImage.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -151,15 +153,26 @@
   <ItemGroup>
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene1.txt" />
     <None Include="..\..\..\..\Users\Z\Downloads\homework_hw3\testscenes\scene2.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellBRDF.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellCosine.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\cornellMIS.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\dragon.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\ggx.test" />
+    <None Include="..\..\Users\Z\Downloads\homework4-submissionscenes\mis.test" />
     <None Include=".gitignore" />
     <None Include="Debug\cornellSimple.test" />
     <None Include="Release\analytic.test" />
     <None Include="Release\cornell.test" />
+    <None Include="Release\cornellBRDF.test" />
+    <None Include="Release\cornellCosine.test" />
+    <None Include="Release\cornellMIS.test" />
     <None Include="Release\cornellNEE.test" />
     <None Include="Release\cornellRR.test" />
     <None Include="Release\cornellSimple.test" />
-    <None Include="Release\CPU_PathTracer.exe" />
-    <None Include="Release\CPU_PathTracer.pdb" />
+    <None Include="Release\ggx.test" />
+    <None Include="Release\mis.test" />
+    <None Include="x64\Release\CPU_PathTracer.exe" />
+    <None Include="x64\Release\CPU_PathTracer.pdb" />
     <None Include="Release\direct3x3.test" />
     <None Include="Release\direct9.test" />
     <None Include="Release\dragon.test" />
@@ -178,6 +191,7 @@
   <ItemGroup>
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
+    <Image Include="cornellCosine.png" />
     <Image Include="cornellNEE.png" />
     <Image Include="cornellRR.png" />
     <Image Include="cornellSimple.png" />
@@ -194,6 +208,11 @@
     <Image Include="scene6.png" />
     <Image Include="scene7.png" />
     <Image Include="sphere.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="FreeImage.lib" />
+    <Library Include="lib\FreeImage.lib" />
+    <Library Include="Release\FreeImage.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

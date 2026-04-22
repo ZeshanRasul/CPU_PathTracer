@@ -1,5 +1,5 @@
 #pragma once
-#include "glm/glm.hpp"
+#include "../include/glm/glm.hpp"
 #include "Texture.h"
 
 class Sphere
