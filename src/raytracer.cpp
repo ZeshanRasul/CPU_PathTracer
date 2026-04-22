@@ -1052,6 +1052,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
 
 	glm::vec3 brdf;
+	float xi0 = RandFloat();
+	float xi1 = RandFloat();
+	float xi2 = RandFloat();
 
 	if (importanceSampling == "hemisphere")
 	{
@@ -1066,7 +1069,90 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		brdf =
 			(intersection.hitObjectDiffuse / (float)M_PI) +
 			(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / ( 2.0f * (float)M_PI)) * spec);
-			
+	}
+	else if (importanceSampling == "brdf")
+	{
+		float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+		float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+
+		float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
+
+
+		if (xi0 <= t)
+		{
+			brdf =
+				t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+
+			float phi = 2.0f * (float)M_PI * xi2;
+
+			float theta_diffuse = glm::acos(glm::sqrt(xi1));
+			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
+
+			glm::vec3 s = glm::vec3(0.0f);
+			s.x = glm::cos(phi) * glm::sin(theta_specular);
+			s.y = glm::sin(phi) * glm::sin(theta_specular);
+			s.z = glm::cos(theta_specular);
+
+			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
+
+
+			glm::vec3 w = glm::normalize(R);
+			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+			glm::vec3 u = glm::normalize(glm::cross(helper, w));
+			glm::vec3 v = glm::cross(w, u);
+
+			w_i = s.x * u + s.y * v + s.z * w;	
+
+			glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
+			float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
+
+
+			if (glm::dot(w_i, intersection.hitObjectNormal) <= 0.0f)
+			{
+				brdf +=
+					(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI) +
+					t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+			}
+			else
+			{
+				brdf = glm::vec3(0.0f);
+			}
+
+		}
+		else
+		{
+
+			float phi = 2.0f * (float)M_PI * xi2;
+
+			float theta_diffuse = glm::acos(glm::sqrt(xi1));
+			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / intersection.hitObjectShininess + 1));
+
+			glm::vec3 s = glm::vec3(0.0f);
+			s.x = glm::cos(phi) * glm::sin(theta_diffuse);
+			s.y = glm::sin(phi) * glm::sin(theta_diffuse);
+			s.z = glm::cos(theta_diffuse);
+
+			w_i = s.x * u + s.y * v + s.z * w;
+
+			brdf =
+				(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI);
+
+			glm::vec3 w = glm::normalize(R);
+			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+			glm::vec3 u = glm::normalize(glm::cross(helper, w));
+			glm::vec3 v = glm::cross(w, u);
+
+			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
+
+			brdf +=
+				(1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI) +
+				t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+
+
+		}
+
+
+
 	}
 
 	if (useRR)
@@ -1079,6 +1165,20 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		else if (importanceSampling == "cosine")
 		{
 			throughput *= brdf * (float)M_PI;
+		}
+		else if (importanceSampling == "brdf")
+		{
+			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+			float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
+			if (xi0 <= t)
+			{
+				throughput *= brdf * ((t * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec)) + ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI));
+			}
+			else
+			{
+				throughput *= brdf * ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI));
+			}
 		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
@@ -1237,7 +1337,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/Release/cornellCosine.test");
+	std::ifstream file("C:/dev/CSE168x/Release/cornellBRDF.test");
 	std::string line;
 
 	while (std::getline(file, line))

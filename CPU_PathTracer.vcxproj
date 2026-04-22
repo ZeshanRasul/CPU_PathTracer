@@ -191,6 +191,7 @@
   <ItemGroup>
     <Image Include="analytic.png" />
     <Image Include="cornell.png" />
+    <Image Include="cornellBRDF.png" />
     <Image Include="cornellCosine.png" />
     <Image Include="cornellNEE.png" />
     <Image Include="cornellRR.png" />
