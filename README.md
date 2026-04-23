@@ -14,6 +14,10 @@ Even though I already have created a fairly advanced hardware raytracer with Dir
 ![64 SPP Cornell Box rendered with NEE and RR](cornellRR.png)
 </br>Figure 2: 64 SPP Cornell Box rendered with NEE and RR
 
+![64 GGX BRDF demo](ggx.png)
+</br>Figure 2: 64 SPP variety of spheres rendered using the GGX BRDF
+
+
 ## Next Steps
 
 1) Multiple Importance Sampling
