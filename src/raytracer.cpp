@@ -1260,9 +1260,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				halfVector = glm::normalize(wi + wo);
 
-				float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
-				float fresnelG = intersection.hitObjectSpecular.g + (1.0f - intersection.hitObjectSpecular.g) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
-				float fresnelB = intersection.hitObjectSpecular.b + (1.0f - intersection.hitObjectSpecular.b) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
+				float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
+				float fresnelG = intersection.hitObjectSpecular.g + (1.0f - intersection.hitObjectSpecular.g) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
+				float fresnelB = intersection.hitObjectSpecular.b + (1.0f - intersection.hitObjectSpecular.b) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
 
 				glm::vec3 fresnel = glm::vec3(fresnelR, fresnelG, fresnelB);
 
@@ -1354,31 +1354,13 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
 				wi = glm::normalize(w_i);
 
-				float phi_h = 2.0f * (float)M_PI * xi2;
-				float microfacetTheta = glm::atan((intersection.hitObjectRoughness * glm::sqrt(xi1)) / glm::sqrt(1.0f - xi1));
-
-				glm::vec3 h = glm::vec3(0.0f);
-				h.x = glm::cos(phi) * glm::sin(microfacetTheta);
-				h.y = glm::sin(phi) * glm::sin(microfacetTheta);
-				h.z = glm::cos(microfacetTheta);
-
-				glm::vec3 w = glm::normalize(intersection.hitObjectNormal);
-				glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-				glm::vec3 u = glm::normalize(glm::cross(helper, w));
-				glm::vec3 v = glm::cross(w, u);
-
-				h = glm::normalize(h.x * u + h.y * v + h.z * w);
-
-				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-				wi = glm::reflect(-wo, h);
-				w_i = wi;
 				cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 
 				halfVector = glm::normalize(wi + wo);
 
-				float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
-				float fresnelG = intersection.hitObjectSpecular.g + (1.0f - intersection.hitObjectSpecular.g) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
-				float fresnelB = intersection.hitObjectSpecular.b + (1.0f - intersection.hitObjectSpecular.b) * glm::pow(1.0f - glm::dot(wi, h), 5.0f);
+				float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
+				float fresnelG = intersection.hitObjectSpecular.g + (1.0f - intersection.hitObjectSpecular.g) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
+				float fresnelB = intersection.hitObjectSpecular.b + (1.0f - intersection.hitObjectSpecular.b) * glm::pow(1.0f - glm::dot(wi, halfVector), 5.0f);
 
 				glm::vec3 fresnel = glm::vec3(fresnelR, fresnelG, fresnelB);
 
@@ -1494,6 +1476,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				float D;
 				float pdf;
 				EvaluateGGX(intersection.hitObjectRoughness, intersection.hitObjectNormal, halfVector, D, pdf, t, wi);
+
+				pdf = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(halfVector, wi));
 
 				throughput *= brdf / pdf;
 			}
