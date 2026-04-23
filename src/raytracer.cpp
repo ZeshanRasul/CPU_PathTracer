@@ -1036,7 +1036,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					// D term
 					float theta_h = glm::acos(glm::dot(halfVector, intersection.hitObjectNormal));
 
-					float DNumerator = (glm::pow(intersection.hitObjectRoughness, 2.0f));
+					float DNumerator = (glm::pow(intersection.hitObjectRoughness, 4.0f));
 					float DDenominator = ((float)M_PI * glm::pow(glm::cos(theta_h), 4.0f)) * glm::pow((glm::pow(intersection.hitObjectRoughness, 2.0f) + glm::pow(glm::tan(theta_h), 2.0f)), 2.0f);
 					float D = DNumerator / (float)(M_PI * DDenominator * DDenominator);
 					// G term
