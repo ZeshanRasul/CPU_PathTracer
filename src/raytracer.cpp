@@ -1051,6 +1051,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
 	float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
 
+
+	float pdf = 0.0f;
+	float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 	glm::vec3 brdf;
 	float xi0 = RandFloat();
 	float xi1 = RandFloat();
@@ -1068,7 +1071,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 		brdf =
 			(intersection.hitObjectDiffuse / (float)M_PI) +
-			(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / ( 2.0f * (float)M_PI)) * spec);
+			(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
 	}
 	else if (importanceSampling == "brdf")
 	{
@@ -1076,6 +1079,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
 
 		float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
+
+		float sum = kd_avg + ks_avg;
+		float pSpec = (sum > 0.0f) ? (ks_avg / sum) : 0.0f;
+		float pDiffuse = 1.0f - pSpec;
 
 		z = RandFloat();
 		float gamma = glm::acos(glm::pow(z, 1 / (intersection.hitObjectShininess + 1)));
@@ -1125,26 +1132,20 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			Intersection secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
 			glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
 			glm::vec3 wi = glm::normalize(w_i);
-
 			glm::vec3 R = glm::reflect(-wo, intersection.hitObjectNormal);
+
 			float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
 
-			w_i = s.x * u + s.y * v + s.z * w;	
+			w_i = s.x * u + s.y * v + s.z * w;
 
 
 
-			if (glm::dot(w_i, intersection.hitObjectNormal) >= 0.0f)
-			{
-				brdf =
-					(1 - t) * (intersection.hitObjectNormal * w_i) / (float)M_PI + (t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) * spec));
+			brdf =
+				(intersection.hitObjectDiffuse / (float)M_PI) +
+				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
 
-				brdf /= 2.0f * (float)M_PI;
-			}
-			else
-			{
-				brdf = glm::vec3(0.0f);
-			}
+
 
 		}
 		else
@@ -1177,12 +1178,22 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
 
-			brdf = (1 - t)* (intersection.hitObjectNormal * w_i) / (float)M_PI + (t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) * spec));
+			brdf =
+				(intersection.hitObjectDiffuse / (float)M_PI) +
+				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
 
 			brdf /= 2.0f * (float)M_PI;
 		}
 
+		float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+		float pdfDiffuse = cosTheta / (float)M_PI;
 
+		glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
+		float rDotWi = std::max(glm::dot(r, wi), 0.0f);
+		float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
+			std::pow(rDotWi, intersection.hitObjectShininess);
+
+		float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
 	}
 
@@ -1199,17 +1210,29 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		}
 		else if (importanceSampling == "brdf")
 		{
-			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
-			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
-			float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
-			if (xi0 <= t)
+			float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+
+			float pdfDiffuse = cosTheta / (float)M_PI;
+
+			glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
+			float rDotWi = std::max(glm::dot(r, wi), 0.0f);
+			float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
+				std::pow(rDotWi, intersection.hitObjectShininess);
+
+			float kdAvg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+			float ksAvg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+			float sum = kdAvg + ksAvg;
+			float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
+			float pDiffuse = 1.0f - pSpec;
+
+			float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
+
+			if (pdf <= 1e-8f || cosTheta <= 0.0f)
 			{
-				throughput *= brdf * ((t * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec)) + ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI));
+				return accumCol;
 			}
-			else
-			{
-				throughput *= brdf * ((1.0f - t) * (intersection.hitObjectDiffuse / (float)M_PI)) * ((t * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec));
-			}
+
+			throughput *= brdf * cosTheta / pdf;
 		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
