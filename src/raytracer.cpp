@@ -1048,12 +1048,12 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
 	glm::vec3 wi = glm::normalize(w_i);
 
-	glm::vec3 R = glm::reflect(-wi, intersection.hitObjectNormal);
-	float spec = std::pow(std::max(glm::dot(R, wo), 0.0f), intersection.hitObjectShininess);
+	glm::vec3 R = glm::reflect(-wo, intersection.hitObjectNormal);
+	float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
 
 	float pdf = 0.0f;
-	float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+	//float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 	glm::vec3 brdf;
 	float xi0 = RandFloat();
 	float xi1 = RandFloat();
@@ -1085,7 +1085,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		float pDiffuse = 1.0f - pSpec;
 
 		z = RandFloat();
-		float gamma = glm::acos(glm::pow(z, 1 / (intersection.hitObjectShininess + 1)));
+		float gamma = glm::acos(glm::pow(z, 1.0 / (intersection.hitObjectShininess + 1.0)));
 		float phi_gamma = 2.0f * (float)M_PI * RandFloat();
 
 		glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
@@ -1108,7 +1108,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		if (xi0 <= t)
 		{
 			brdf =
-				t * (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
 
 			float phi = 2.0f * (float)M_PI * xi2;
 
@@ -1119,9 +1119,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			s.x = glm::cos(phi) * glm::sin(theta_specular);
 			s.y = glm::sin(phi) * glm::sin(theta_specular);
 			s.z = glm::cos(theta_specular);
-
-			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
-
 
 			glm::vec3 w = glm::normalize(R);
 			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
@@ -1154,14 +1151,14 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			float phi = 2.0f * (float)M_PI * xi2;
 
 			float theta_diffuse = glm::acos(glm::sqrt(xi1));
-			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
+			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1.0)));
 
-			glm::vec3 s = glm::vec3(0.0f);
-			s.x = glm::cos(phi) * glm::sin(theta_diffuse);
-			s.y = glm::sin(phi) * glm::sin(theta_diffuse);
-			s.z = glm::cos(theta_diffuse);
+			glm::vec3 n = glm::normalize(intersection.hitObjectNormal);
+			glm::vec3 helperN = (std::abs(n.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+			glm::vec3 uN = glm::normalize(glm::cross(helperN, n));
+			glm::vec3 vN = glm::cross(n, uN);
 
-			w_i = s.x * u + s.y * v + s.z * w;
+			w_i = s.x * uN + s.y * vN + s.z * n;
 
 			secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
 			secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
@@ -1170,13 +1167,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			R = glm::reflect(-wo, intersection.hitObjectNormal);
 			float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
-
-			glm::vec3 w = glm::normalize(R);
-			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-			glm::vec3 u = glm::normalize(glm::cross(helper, w));
-			glm::vec3 v = glm::cross(w, u);
-
-			glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
 
 			brdf =
 				(intersection.hitObjectDiffuse / (float)M_PI) +
@@ -1224,14 +1214,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
 			float pDiffuse = 1.0f - pSpec;
 
-			float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
+			pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
-			if (pdf <= 1e-8f || cosTheta <= 0.0f)
-			{
-				return accumCol;
-			}
-
-			throughput *= brdf * cosTheta / pdf;
+			throughput *= brdf / pdf;
 		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
