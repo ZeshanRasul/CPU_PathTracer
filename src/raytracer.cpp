@@ -1554,13 +1554,9 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
-				col = accumCol;
-				col.r = accumCol.r / (1.0f + accumCol.r);
-				col.g = accumCol.g / (1.0f + accumCol.g);
-				col.b = accumCol.b / (1.0f + accumCol.b);
-				col.r = glm::pow(accumCol.r, 1.0f / gamma);
-				col.g = glm::pow(accumCol.g, 1.0f / gamma);
-				col.b = glm::pow(accumCol.b, 1.0f / gamma);
+				col.r = glm::pow(std::max(accumCol.r, 0.0f), 1.0f / gamma);
+				col.g = glm::pow(std::max(accumCol.g, 0.0f), 1.0f / gamma);
+				col.b = glm::pow(std::max(accumCol.b, 0.0f), 1.0f / gamma);
 			}
 			int idx = (y * width + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
