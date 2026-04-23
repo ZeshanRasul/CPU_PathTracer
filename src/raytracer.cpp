@@ -1319,13 +1319,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				if (xi0 <= t)
 				{
 					pdf = pSpec * pdfSpec + pdf_ggx;
+					throughput *= brdf * cosTheta / pdf;
 				}
 				else
 				{
 					pdf = pDiffuse * pdfDiffuse + pdf_ggx;
+					throughput *= brdf * cosTheta / pdf;
+
 				}
 
-				throughput *= brdf / pdf;
 			}
 		}
 
