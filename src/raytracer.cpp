@@ -1036,16 +1036,16 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					// D term
 					float theta_h = glm::acos(glm::dot(halfVector, intersection.hitObjectNormal));
 
-					float DNumerator = (glm::pow(intersection.hitObjectRoughness, 4.0f));
+					float DNumerator = (glm::pow(intersection.hitObjectRoughness, 2.0f));
 					float DDenominator = ((float)M_PI * glm::pow(glm::cos(theta_h), 4.0f)) * glm::pow((glm::pow(intersection.hitObjectRoughness, 2.0f) + glm::pow(glm::tan(theta_h), 2.0f)), 2.0f);
-					float D = DNumerator / (float)(M_PI * DDenominator * DDenominator);
+					float D = DNumerator / DDenominator;
 					// G term
 					float k = (intersection.hitObjectRoughness + 1.0f) * (intersection.hitObjectRoughness + 1.0f) / 8.0f;
 					float G_V = NdotV / (NdotV * (1 - k) + k);
 					float G_L = NdotL / (NdotL * (1 - k) + k);
 					float G = G_V * G_L;
 					glm::vec3 F0 = intersection.hitObjectSpecular;
-					glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * glm::pow(1.0f - VdotH, 5.0f) * F0;
+					glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * glm::pow(1.0f - VdotH, 5.0f);
 					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
 				}
 				float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
