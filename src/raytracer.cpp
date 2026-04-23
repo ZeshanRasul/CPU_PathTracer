@@ -1121,10 +1121,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
-
-
-
-
 				brdf =
 					(intersection.hitObjectDiffuse / (float)M_PI) +
 					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
@@ -1170,6 +1166,50 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				std::pow(rDotWi, intersection.hitObjectShininess);
 
 			float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
+		}
+		else if (chosenBRDF == "ggx")
+		{
+			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+
+			float t = glm::max(0.25f, ks_avg / (ks_avg + kd_avg + 1e-6f));
+
+			float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(intersection.hitObjectNormal, wi), 5.0f);
+			float fresnelG = intersection.hitObjectSpecular.g + (1.0f - intersection.hitObjectSpecular.g) * glm::pow(1.0f - glm::dot(intersection.hitObjectNormal, wi), 5.0f);
+			float fresnelB = intersection.hitObjectSpecular.b + (1.0f - intersection.hitObjectSpecular.b) * glm::pow(1.0f - glm::dot(intersection.hitObjectNormal, wi), 5.0f);
+
+			glm::vec3 fresnel = glm::vec3(fresnelR, fresnelG, fresnelB);
+
+			glm::vec3 halfVector = glm::normalize(wi + wo);
+
+			float theta_h = glm::acos(glm::dot(halfVector, intersection.hitObjectNormal));
+
+			float DNumerator = (glm::pow(intersection.hitObjectRoughness, 2.0f));
+			float DDenominator = ((float)M_PI * glm::pow(glm::cos(theta_h), 4.0f)) * glm::pow((glm::pow(intersection.hitObjectRoughness, 2.0f) + glm::pow(glm::tan(theta_h), 2.0f)), 2.0f);
+
+			float theta_v = glm::acos(glm::dot(glm::normalize(wo), intersection.hitObjectNormal));
+
+			float Gv;
+
+			if (glm::dot(glm::normalize(wo), intersection.hitObjectNormal) > 0)
+			{
+				Gv = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_v), 2.0f)))));
+			}
+			else
+			{
+				Gv = 0.0f;
+			}
+
+			glm::vec3 fGGX = ((DNumerator / DDenominator) * fresnel * Gv) / (4.0f * glm::dot(wi, intersection.hitObjectNormal) * glm::dot(wo, intersection.hitObjectNormal));	
+
+			if (xi0 <= t)
+			{
+
+			}
+			else
+			{
+
+			}
 		}
 
 	}
