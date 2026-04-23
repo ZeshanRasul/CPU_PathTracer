@@ -1017,7 +1017,35 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				glm::vec3 wi = dir;
 				glm::vec3 reflectVector = glm::reflect(-wi, intersection.hitObjectNormal);
 				float reflectVecDotWo = std::max(glm::dot(reflectVector, wo), 0.0f);
-				glm::vec3 brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
+				
+				glm::vec3 brdf;
+
+				if (intersection.brdf == "phong")
+				{
+					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
+				}
+				else if (intersection.brdf == "ggx")
+				{
+					glm::vec3 halfVector = glm::normalize(wi + wo);
+					float NdotH = std::max(glm::dot(intersection.hitObjectNormal, halfVector), 0.0f);
+					float NdotV = std::max(glm::dot(intersection.hitObjectNormal, wo), 0.0f);
+					float NdotL = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+					float VdotH = std::max(glm::dot(wo, halfVector), 0.0f);
+					float alpha = intersection.hitObjectRoughness * intersection.hitObjectRoughness;
+					float alphaSqr = alpha * alpha;
+					// D term
+					float DNumerator = alphaSqr;
+					float DDenominator = (NdotH * NdotH) * (alphaSqr - 1.0f) + 1.0f;
+					float D = DNumerator / (float)(M_PI * DDenominator * DDenominator);
+					// G term
+					float k = (alpha + 1) * (alpha + 1) / 8.0f; // UE4's Smith GGX approximation
+					float G_V = NdotV / (NdotV * (1 - k) + k);
+					float G_L = NdotL / (NdotL * (1 - k) + k);
+					float G = G_V * G_L;
+					glm::vec3 F0 = intersection.hitObjectSpecular;
+					glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * glm::pow(1.0f - VdotH, 5.0f);
+					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
+				}
 				float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
 				perLight += brdf * G;
 			}
@@ -1065,6 +1093,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float xi1 = RandFloat();
 	float xi2 = RandFloat();
 	float pdf_ggx;
+	glm::vec3 halfVector;
+	float DNumerator;
+	float DDenominator;
 
 	if (importanceSampling == "hemisphere")
 	{
@@ -1082,7 +1113,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	}
 	else if (importanceSampling == "brdf")
 	{
-		if (chosenBRDF == "phong")
+		if (intersection.brdf == "phong")
 		{
 			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
 			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
@@ -1168,7 +1199,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 		}
-		else if (chosenBRDF == "ggx")
+		else if (intersection.brdf == "ggx")
 		{
 			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
 			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
@@ -1186,34 +1217,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			glm::vec3 fresnel = glm::vec3(fresnelR, fresnelG, fresnelB);
 
-			glm::vec3 halfVector = glm::normalize(wi + wo);
-
-			float theta_h = glm::acos(glm::dot(halfVector, intersection.hitObjectNormal));
-
-			float DNumerator = (glm::pow(intersection.hitObjectRoughness, 2.0f));
-			float DDenominator = ((float)M_PI * glm::pow(glm::cos(theta_h), 4.0f)) * glm::pow((glm::pow(intersection.hitObjectRoughness, 2.0f) + glm::pow(glm::tan(theta_h), 2.0f)), 2.0f);
-
-			float theta_v = glm::acos(glm::dot(glm::normalize(wo), intersection.hitObjectNormal));
-
-			float Gv;
-
-			if (glm::dot(glm::normalize(wo), intersection.hitObjectNormal) > 0)
-			{
-				Gv = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_v), 2.0f)))));
-			}
-			else
-			{
-				Gv = 0.0f;
-			}
-
-			glm::vec3 fGGX = ((DNumerator / DDenominator) * fresnel * Gv) / (4.0f * glm::dot(wi, intersection.hitObjectNormal) * glm::dot(wo, intersection.hitObjectNormal));	
-
-			if (glm::dot(wi, intersection.hitObjectNormal) <= 0 || glm::dot(wo, intersection.hitObjectNormal) <= 0)
-			{
-				fGGX = glm::vec3(0.0f);
-			}
-
-			pdf_ggx = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * (DNumerator / DDenominator) * (glm::dot(intersection.hitObjectNormal, halfVector) / (4.0f * glm::dot(halfVector, wi)));
 
 			float phi_h = 2.0f * (float)M_PI * xi2;
 			float microfacetTheta = glm::atan((intersection.hitObjectRoughness * glm::sqrt(xi1)) / glm::sqrt(1.0f - xi1));
@@ -1229,7 +1232,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			s.y = glm::sin(phi_h) * glm::sin(microfacetTheta);
 			s.z = glm::cos(microfacetTheta);
 
-			glm::vec3 w = glm::normalize(R);
+			glm::vec3 w = glm::normalize(h);
 			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
 			glm::vec3 u = glm::normalize(glm::cross(helper, w));
 			glm::vec3 v = glm::cross(w, u);
@@ -1237,28 +1240,59 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			w_i = s.x * u + s.y * v + s.z * w;
 
 			wi = glm::normalize(w_i);
-			secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
-			secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
 			wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-			R = glm::reflect(-wo, halfVector);
+			halfVector = glm::normalize(wi + wo);
+
+			float theta_h = glm::acos(glm::dot(halfVector, intersection.hitObjectNormal));
+
+			DNumerator = (glm::pow(intersection.hitObjectRoughness, 2.0f));
+			DDenominator = ((float)M_PI * glm::pow(glm::cos(theta_h), 4.0f)) * glm::pow((glm::pow(intersection.hitObjectRoughness, 2.0f) + glm::pow(glm::tan(theta_h), 2.0f)), 2.0f);
+
+			float theta_v = glm::acos(glm::dot(glm::normalize(wo), intersection.hitObjectNormal));
+
+			float Gv;
+
+			if (glm::dot(glm::normalize(wo), intersection.hitObjectNormal) > 0)
+			{
+				Gv = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_v), 2.0f)))));
+			}
+			else
+			{
+				Gv = 0.0f;
+			}
+
+			float Gv2;
+
+			if (glm::dot(glm::normalize(wi), intersection.hitObjectNormal) > 0)
+			{
+				Gv2 = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_v), 2.0f)))));
+			}
+			else
+			{
+				Gv2 = 0.0f;
+			}
+
+			glm::vec3 fGGX = ((DNumerator / DDenominator) * fresnel * (Gv * Gv2)) / (4.0f * glm::dot(wi, intersection.hitObjectNormal) * glm::dot(wo, intersection.hitObjectNormal));
+
+			if (glm::dot(wi, intersection.hitObjectNormal) <= 0 || glm::dot(wo, intersection.hitObjectNormal) <= 0)
+			{
+				fGGX = glm::vec3(0.0f);
+			}
+
+			pdf_ggx = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * ((DNumerator / DDenominator) * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(halfVector, wi)));
 
 
 			if (xi0 <= t)
 			{
-				brdf =
-					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
 
 				float phi = 2.0f * (float)M_PI * xi2;
 
-				float theta_diffuse = glm::acos(glm::sqrt(xi1));
-				float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
-
 				glm::vec3 s = glm::vec3(0.0f);
-				s.x = glm::cos(phi) * glm::sin(theta_specular);
-				s.y = glm::sin(phi) * glm::sin(theta_specular);
-				s.z = glm::cos(theta_specular);
+				s.x = glm::cos(phi) * glm::sin(microfacetTheta);
+				s.y = glm::sin(phi) * glm::sin(microfacetTheta);
+				s.z = glm::cos(microfacetTheta);
 
-				glm::vec3 w = glm::normalize(R);
+				glm::vec3 w = glm::normalize(halfVector);
 				glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
 				glm::vec3 u = glm::normalize(glm::cross(helper, w));
 				glm::vec3 v = glm::cross(w, u);
@@ -1305,7 +1339,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-				w_i = s.x * uN + s.y * vN + s.z * n;
+				//	w_i = s.x * uN + s.y * vN + s.z * n;
 
 				secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
 				secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
@@ -1353,7 +1387,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		}
 		else if (importanceSampling == "brdf")
 		{
-			if (chosenBRDF == "phong")
+			if (intersection.brdf == "phong")
 			{
 				float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 
@@ -1374,7 +1408,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				throughput *= brdf * cosTheta / pdf;
 			}
-			else if (chosenBRDF == "ggx")
+			else if (intersection.brdf == "ggx")
 			{
 				float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 
@@ -1404,7 +1438,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				//	throughput *= brdf * cosTheta / pdf;
 
 				//}
-				pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec + pdf_ggx;
+
+				float D = DNumerator / DDenominator;
+
+				pdf = (1 - t) * (cosTheta / (float)M_PI) + t * (D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(wi, halfVector)));
 
 				throughput *= brdf * cosTheta / pdf;
 
@@ -1424,7 +1461,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	}
 
 	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, intersection.brdf);
-	
+
 
 
 
@@ -1505,7 +1542,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					else
 					{
 						glm::vec3 throughput = glm::vec3(1.0f);
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput, importanceSampling, chosenBRDF);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput, importanceSampling, intersection.brdf);
 
 
 
