@@ -1034,7 +1034,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float alpha = intersection.hitObjectRoughness * intersection.hitObjectRoughness;
 					float alphaSqr = alpha * alpha;
 					// D term
-					float DNumerator = alphaSqr;
+					float DNumerator = alpha;
 					float DDenominator = (NdotH * NdotH) * (alphaSqr - 1.0f) + 1.0f;
 					float D = DNumerator / (float)(M_PI * DDenominator * DDenominator);
 					// G term
@@ -1261,11 +1261,14 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				Gv = 0.0f;
 			}
 
+			float theta_l = glm::acos(glm::dot(glm::normalize(wi), intersection.hitObjectNormal));
+
+
 			float Gv2;
 
 			if (glm::dot(glm::normalize(wi), intersection.hitObjectNormal) > 0)
 			{
-				Gv2 = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_v), 2.0f)))));
+				Gv2 = (2) / (1 + (glm::sqrt(1 + (glm::pow(intersection.hitObjectRoughness, 2.0f) * glm::pow(glm::tan(theta_l), 2.0f)))));
 			}
 			else
 			{
@@ -1282,7 +1285,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			pdf_ggx = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * ((DNumerator / DDenominator) * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(halfVector, wi)));
 
 
-			if (xi0 <= t)
+			if (xi0 <= pSpec)
 			{
 
 				float phi = 2.0f * (float)M_PI * xi2;
@@ -1297,18 +1300,17 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				glm::vec3 u = glm::normalize(glm::cross(helper, w));
 				glm::vec3 v = glm::cross(w, u);
 
-				w_i = s.x * u + s.y * v + s.z * w;
-				wi = glm::normalize(w_i);
+				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+				wi = glm::reflect(-wo, h);
+				w_i = wi;
 				secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
 				secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
-				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
 				R = glm::reflect(-wo, intersection.hitObjectNormal);
 
 				float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
 				brdf =
-					(intersection.hitObjectDiffuse / (float)M_PI) +
-					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec + fGGX;
+					(intersection.hitObjectDiffuse / (float)M_PI) + fGGX;
 
 
 
@@ -1416,8 +1418,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
 				float rDotWi = std::max(glm::dot(r, wi), 0.0f);
-				float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
-					std::pow(rDotWi, intersection.hitObjectShininess);
 
 				float kdAvg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
 				float ksAvg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
@@ -1440,8 +1440,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				//}
 
 				float D = DNumerator / DDenominator;
+				float pdfSpec = D * glm::dot(intersection.hitObjectNormal, halfVector) / (4.0f * glm::dot(wi, halfVector));
+				pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
-				pdf = (1 - t) * (cosTheta / (float)M_PI) + t * (D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(wi, halfVector)));
+				//pdf = (1 - t) * (cosTheta / (float)M_PI) + t * (D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(wi, halfVector)));
 
 				throughput *= brdf * cosTheta / pdf;
 
@@ -1552,6 +1554,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
+				col = accumCol;
 				col.r = accumCol.r / (1.0f + accumCol.r);
 				col.g = accumCol.g / (1.0f + accumCol.g);
 				col.b = accumCol.b / (1.0f + accumCol.b);
@@ -1606,7 +1609,7 @@ int main() {
 	bool useRR = false;
 	std::string importanceSampling;
 	std::string brdf = "phong";
-	float roughness;
+	float roughness = 0.0f;
 	float gamma = 1.0f;
 
 	Scene* scene = new Scene();
@@ -1880,6 +1883,7 @@ int main() {
 		if (cmd == "brdf")
 		{
 			std::cout << line << std::endl;
+			brdf = "";
 			iss >> brdf;
 		}
 
