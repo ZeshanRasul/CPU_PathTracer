@@ -945,7 +945,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput, std::string importanceSampling)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput, std::string importanceSampling, std::string chosenBRDF)
 {
 	glm::vec3 accumCol(0.0f);
 	if (!intersection.didHit)
@@ -1081,93 +1081,96 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	}
 	else if (importanceSampling == "brdf")
 	{
-		float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
-		float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
-
-		float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
-
-		float sum = kd_avg + ks_avg;
-		float pSpec = (sum > 0.0f) ? (ks_avg / sum) : 0.0f;
-		float pDiffuse = 1.0f - pSpec;
-
-		if (xi0 <= t)
+		if (chosenBRDF == "phong")
 		{
-			brdf =
-				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
+			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
 
-			float phi = 2.0f * (float)M_PI * xi2;
+			float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
 
-			float theta_diffuse = glm::acos(glm::sqrt(xi1));
-			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
+			float sum = kd_avg + ks_avg;
+			float pSpec = (sum > 0.0f) ? (ks_avg / sum) : 0.0f;
+			float pDiffuse = 1.0f - pSpec;
 
-			glm::vec3 s = glm::vec3(0.0f);
-			s.x = glm::cos(phi) * glm::sin(theta_specular);
-			s.y = glm::sin(phi) * glm::sin(theta_specular);
-			s.z = glm::cos(theta_specular);
+			if (xi0 <= t)
+			{
+				brdf =
+					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI)) * spec);
 
-			glm::vec3 w = glm::normalize(R);
-			glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-			glm::vec3 u = glm::normalize(glm::cross(helper, w));
-			glm::vec3 v = glm::cross(w, u);
+				float phi = 2.0f * (float)M_PI * xi2;
 
-			w_i = s.x * u + s.y * v + s.z * w;
-			wi = glm::normalize(w_i);
-			secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
-			secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
-			wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-			R = glm::reflect(-wo, intersection.hitObjectNormal);
+				float theta_diffuse = glm::acos(glm::sqrt(xi1));
+				float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1)));
 
-			float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
+				glm::vec3 s = glm::vec3(0.0f);
+				s.x = glm::cos(phi) * glm::sin(theta_specular);
+				s.y = glm::sin(phi) * glm::sin(theta_specular);
+				s.z = glm::cos(theta_specular);
+
+				glm::vec3 w = glm::normalize(R);
+				glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+				glm::vec3 u = glm::normalize(glm::cross(helper, w));
+				glm::vec3 v = glm::cross(w, u);
+
+				w_i = s.x * u + s.y * v + s.z * w;
+				wi = glm::normalize(w_i);
+				secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
+				secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
+				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+				R = glm::reflect(-wo, intersection.hitObjectNormal);
+
+				float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
 
 
 
 
-			brdf =
-				(intersection.hitObjectDiffuse / (float)M_PI) +
-				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
+				brdf =
+					(intersection.hitObjectDiffuse / (float)M_PI) +
+					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
 
 
 
+			}
+			else
+			{
+
+				float phi = 2.0f * (float)M_PI * xi2;
+
+				float theta_diffuse = glm::acos(glm::sqrt(xi1));
+				float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1.0)));
+
+				glm::vec3 n = glm::normalize(intersection.hitObjectNormal);
+				glm::vec3 helperN = (std::abs(n.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+				glm::vec3 uN = glm::normalize(glm::cross(helperN, n));
+				glm::vec3 vN = glm::cross(n, uN);
+
+				w_i = s.x * uN + s.y * vN + s.z * n;
+
+				secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
+				secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
+				wo = glm::normalize(ray.origin - intersection.intersectionPoint);
+				wi = glm::normalize(w_i);
+
+				R = glm::reflect(-wo, intersection.hitObjectNormal);
+				float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
+
+				brdf =
+					(intersection.hitObjectDiffuse / (float)M_PI) +
+					(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
+
+			}
+
+			float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+			float pdfDiffuse = cosTheta / (float)M_PI;
+
+			glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
+			float rDotWi = std::max(glm::dot(r, wi), 0.0f);
+			float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
+				std::pow(rDotWi, intersection.hitObjectShininess);
+
+			float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 		}
-		else
-		{
-
-			float phi = 2.0f * (float)M_PI * xi2;
-
-			float theta_diffuse = glm::acos(glm::sqrt(xi1));
-			float theta_specular = glm::acos(glm::pow(xi1, 1.0 / (intersection.hitObjectShininess + 1.0)));
-
-			glm::vec3 n = glm::normalize(intersection.hitObjectNormal);
-			glm::vec3 helperN = (std::abs(n.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-			glm::vec3 uN = glm::normalize(glm::cross(helperN, n));
-			glm::vec3 vN = glm::cross(n, uN);
-
-			w_i = s.x * uN + s.y * vN + s.z * n;
-
-			secondaryRay = Ray(intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f, glm::normalize(w_i));
-			secondaryIntersection = FindIntersection(grid, scene, secondaryRay, false);
-			wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-			wi = glm::normalize(w_i);
-
-			R = glm::reflect(-wo, intersection.hitObjectNormal);
-			float spec = std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
-
-			brdf =
-				(intersection.hitObjectDiffuse / (float)M_PI) +
-				(intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2.0f) / (2.0f * (float)M_PI))) * spec;
-
-		}
-
-		float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
-		float pdfDiffuse = cosTheta / (float)M_PI;
-
-		glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
-		float rDotWi = std::max(glm::dot(r, wi), 0.0f);
-		float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
-			std::pow(rDotWi, intersection.hitObjectShininess);
-
-		float pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
 	}
 
@@ -1216,7 +1219,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		}
 	}
 
-	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling);
+	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, intersection.brdf);
 	
 
 
@@ -1232,7 +1235,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling, std::string chosenBRDF)
 {
 	{
 		std::ostringstream oss;
@@ -1298,7 +1301,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 					else
 					{
 						glm::vec3 throughput = glm::vec3(1.0f);
-						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput, importanceSampling);
+						accumCol += PathTracerFindColor(&grid, ray, &scene, &cam, depth, lightSamples, lightStratify, intersection, useNEE, useRR, throughput, importanceSampling, chosenBRDF);
 
 
 
@@ -1358,11 +1361,12 @@ int main() {
 	std::string importanceSampling;
 	std::string brdf = "phong";
 	float roughness;
+	float gamma = 1.0f;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/Release/cornellBRDF.test");
+	std::ifstream file("C:/dev/CSE168x/Release/ggx.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1465,7 +1469,8 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back(), brdf));
+			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back(), brdf, roughness
+			));
 		}
 
 		if (cmd == "maxverts")
@@ -1499,7 +1504,7 @@ int main() {
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
 
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), brdf, false, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), brdf, roughness, false, NULL));
 		}
 
 		if (cmd == "trinormal")
@@ -1572,8 +1577,8 @@ int main() {
 			glm::vec3 v2 = a + ab + ac;
 			glm::vec3 v3 = a + ac;
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), true, NULL));
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, true, NULL));
 			scene->AddQuadLight(quadLight);
 		}
 
@@ -1636,6 +1641,12 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> roughness;
+		}
+
+		if (cmd == "gamma")
+		{
+			std::cout << line << std::endl;
+			iss >> gamma;
 		}
 	}
 
