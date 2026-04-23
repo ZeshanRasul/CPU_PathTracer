@@ -1318,7 +1318,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling, std::string chosenBRDF)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling, std::string chosenBRDF, float gamma)
 {
 	{
 		std::ostringstream oss;
@@ -1394,7 +1394,9 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
-				col = accumCol;
+				col.r = glm::pow(accumCol.r, 1.0f / gamma);
+				col.g = glm::pow(accumCol.g, 1.0f / gamma);
+				col.b = glm::pow(accumCol.b, 1.0f / gamma);
 			}
 			int idx = (y * width + x) * 3;
 			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
@@ -1769,7 +1771,7 @@ int main() {
 
 		if (start >= end) continue; // nothing to do for this thread
 
-		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE, useRR, importanceSampling, brdf);
+		threads.emplace_back(RenderPixels, start, end, std::ref(*scene), std::ref(cam), integrator, IMAGE_WIDTH, IMAGE_HEIGHT, std::ref(*grid), lightSamples, lightStratify, pixels, spp, useNEE, useRR, importanceSampling, brdf, gamma);
 	}
 
 	for (auto& t : threads)
