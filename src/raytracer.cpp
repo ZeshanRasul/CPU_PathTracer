@@ -1084,27 +1084,6 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		float pSpec = (sum > 0.0f) ? (ks_avg / sum) : 0.0f;
 		float pDiffuse = 1.0f - pSpec;
 
-		z = RandFloat();
-		float gamma = glm::acos(glm::pow(z, 1.0 / (intersection.hitObjectShininess + 1.0)));
-		float phi_gamma = 2.0f * (float)M_PI * RandFloat();
-
-		glm::vec3 wo = glm::normalize(ray.origin - intersection.intersectionPoint);
-		glm::vec3 wi = glm::normalize(w_i);
-
-		glm::vec3 R = glm::reflect(-wo, intersection.hitObjectNormal);
-
-
-		glm::vec3 s = glm::vec3(0.0f);
-		s.x = glm::cos(phi) * glm::sin(theta);
-		s.y = glm::sin(phi) * glm::sin(theta);
-		s.z = glm::cos(theta);
-
-		glm::vec3 w = glm::normalize(R);
-		glm::vec3 helper = (std::abs(w.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-		glm::vec3 u = glm::normalize(glm::cross(helper, w));
-		glm::vec3 v = glm::cross(w, u);
-
-		glm::vec3 w_i = s.x * u + s.y * v + s.z * w;
 		if (xi0 <= t)
 		{
 			brdf =
@@ -1216,7 +1195,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 			pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
-			throughput *= brdf / pdf;
+			throughput *= brdf * cosTheta / pdf;
 		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
