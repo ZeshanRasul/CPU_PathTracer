@@ -5,7 +5,7 @@
 class Sphere
 {
 public:
-	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior, glm::mat4 modelMat, texture* matTex = NULL)
+	Sphere(glm::vec3 center, float radius, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, float ior, glm::mat4 modelMat, std::string brdf, float roughness, texture* matTex = NULL)
 		:
 		center(center),
 		radius(radius),
@@ -16,6 +16,8 @@ public:
 		ambient(ambient),
 		ior(ior),
 		transform(modelMat),
+		brdf(brdf),
+		roughness(roughness),
 		matTexture(matTex)
 	{
 	}
@@ -41,4 +43,6 @@ public:
 	float ior;
 	texture* matTexture;
 	glm::mat4 transform;
+	std::string brdf = "phong";
+	float roughness;
 };

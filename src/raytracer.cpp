@@ -633,6 +633,8 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 				hitSphere->ior,
 				intersection.t,
 				false,
+				hitSphere->brdf,
+				hitSphere->roughness,
 				hitSphere->matTexture != NULL,
 				hitSphere->matTexture
 			);
@@ -681,6 +683,8 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 				1.0f,
 				tTriangle,
 				hitTri->isLight,
+				hitTri->brdf,
+				hitTri->roughness,
 				false,
 				NULL
 			);
@@ -702,6 +706,8 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 		1.0f,
 		minDist,
 		false,
+		"phong",
+		0.0f,
 		hitHasTexture,
 		NULL
 	);
@@ -1350,6 +1356,8 @@ int main() {
 	bool useNEE = false;
 	bool useRR = false;
 	std::string importanceSampling;
+	std::string brdf = "phong";
+	float roughness;
 
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
@@ -1457,7 +1465,7 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> sphereX >> sphereY >> sphereZ >> sphereRadius;
-			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back()));
+			scene->AddSphere(new Sphere(glm::vec3(sphereX, sphereY, sphereZ), sphereRadius, glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), 1.0f, transformStack.back(), brdf));
 		}
 
 		if (cmd == "maxverts")
@@ -1491,7 +1499,7 @@ int main() {
 			int v0, v1, v2;
 			iss >> v0 >> v1 >> v2;
 
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), false, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(verts[v0].position, 1.0f), transformStack.back() * glm::vec4(verts[v1].position, 1.0f), transformStack.back() * glm::vec4(verts[v2].position, 1.0f), glm::vec3(diffuseR, diffuseG, diffuseB), glm::vec3(specularR, specularG, specularB), glm::vec3(emissionR, emissionG, emissionB), shininess, glm::vec3(ambientR, ambientG, ambientB), brdf, false, NULL));
 		}
 
 		if (cmd == "trinormal")
@@ -1616,6 +1624,18 @@ int main() {
 		{
 			std::cout << line << std::endl;
 			iss >> importanceSampling;
+		}
+
+		if (cmd == "brdf")
+		{
+			std::cout << line << std::endl;
+			iss >> brdf;
+		}
+
+		if (cmd == "roughness")
+		{
+			std::cout << line << std::endl;
+			iss >> roughness;
 		}
 	}
 
