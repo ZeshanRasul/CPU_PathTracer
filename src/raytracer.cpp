@@ -1563,14 +1563,17 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
-				col.r = glm::pow(std::max(accumCol.r, 0.0f), 1.0f / gamma);
-				col.g = glm::pow(std::max(accumCol.g, 0.0f), 1.0f / gamma);
-				col.b = glm::pow(std::max(accumCol.b, 0.0f), 1.0f / gamma);
+				col = accumCol;
 			}
+			col.r = glm::pow(glm::clamp(col.r, 0.0f, 1.0f), 1.0f / gamma);
+			col.g = glm::pow(glm::clamp(col.g, 0.0f, 1.0f), 1.0f / gamma);
+			col.b = glm::pow(glm::clamp(col.b, 0.0f, 1.0f), 1.0f / gamma);
+
+
 			int idx = (y * width + x) * 3;
-			pixels[idx + 0] = std::min(col.b * 255.0f, 255.0f);
-			pixels[idx + 1] = std::min(col.g * 255.0f, 255.0f);
-			pixels[idx + 2] = std::min(col.r * 255.0f, 255.0f);
+			pixels[idx + 0] = static_cast<BYTE>(glm::clamp(col.b, 0.0f, 1.0f) * 255.0f);
+			pixels[idx + 1] = static_cast<BYTE>(glm::clamp(col.g, 0.0f, 1.0f) * 255.0f);
+			pixels[idx + 2] = static_cast<BYTE>(glm::clamp(col.r, 0.0f, 1.0f) * 255.0f);
 			//	std::cout << "Pixel (" << x << ", " << y << ") of total (" << width << ", " << height << ")" << std::endl;
 		}
 		int completed = ++g_rowsCompleted;
