@@ -1064,6 +1064,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float xi0 = RandFloat();
 	float xi1 = RandFloat();
 	float xi2 = RandFloat();
+	float pdf_ggx;
 
 	if (importanceSampling == "hemisphere")
 	{
@@ -1207,7 +1208,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				fGGX = glm::vec3(0.0f);
 			}
 
-			float pdf = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * (DNumerator / DDenominator) * (glm::dot(intersection.hitObjectNormal, halfVector) / (4.0f * glm::dot(halfVector, wi)));
+			pdf_ggx = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * (DNumerator / DDenominator) * (glm::dot(intersection.hitObjectNormal, halfVector) / (4.0f * glm::dot(halfVector, wi)));
 
 			float phi_h = 2.0f * (float)M_PI * xi2;
 			float microfacetTheta = glm::atan((intersection.hitObjectRoughness * glm::sqrt(xi1)) / glm::sqrt(1.0f - xi1));
@@ -1270,24 +1271,31 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 		}
 		else if (importanceSampling == "brdf")
 		{
-			float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+			if (chosenBRDF == "phong")
+			{
+				float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 
-			float pdfDiffuse = cosTheta / (float)M_PI;
+				float pdfDiffuse = cosTheta / (float)M_PI;
 
-			glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
-			float rDotWi = std::max(glm::dot(r, wi), 0.0f);
-			float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
-				std::pow(rDotWi, intersection.hitObjectShininess);
+				glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
+				float rDotWi = std::max(glm::dot(r, wi), 0.0f);
+				float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
+					std::pow(rDotWi, intersection.hitObjectShininess);
 
-			float kdAvg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
-			float ksAvg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
-			float sum = kdAvg + ksAvg;
-			float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
-			float pDiffuse = 1.0f - pSpec;
+				float kdAvg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+				float ksAvg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+				float sum = kdAvg + ksAvg;
+				float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
+				float pDiffuse = 1.0f - pSpec;
 
-			pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
+				pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec;
 
-			throughput *= brdf * cosTheta / pdf;
+				throughput *= brdf * cosTheta / pdf;
+			}
+			else if (chosenBRDF == "ggx")
+			{
+				throughput *= brdf / pdf_ggx;
+			}
 		}
 
 		float q = 1.0f - std::min(std::max(throughput.r, std::max(throughput.g, throughput.b)), 1.0f);
