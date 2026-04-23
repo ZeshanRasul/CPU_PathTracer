@@ -1314,7 +1314,16 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
 				float pDiffuse = 1.0f - pSpec;
 
-				pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec + pdf_ggx;
+				float t = glm::max(0.25f, ksAvg / (ksAvg + kdAvg + 1e-6f));
+
+				if (xi0 <= t)
+				{
+					pdf = pSpec * pdfSpec + pdf_ggx;
+				}
+				else
+				{
+					pdf = pDiffuse * pdfDiffuse + pdf_ggx;
+				}
 
 				throughput *= brdf / pdf;
 			}
