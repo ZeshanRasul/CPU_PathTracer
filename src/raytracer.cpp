@@ -1173,6 +1173,11 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
 			float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
 
+			float sum = kd_avg + ks_avg;
+			float pSpec = (sum > 0.0f) ? (ks_avg / sum) : 0.0f;
+			float pDiffuse = 1.0f - pSpec;
+
+
 			float t = glm::max(0.25f, ks_avg / (ks_avg + kd_avg + 1e-6f));
 
 			float fresnelR = intersection.hitObjectSpecular.r + (1.0f - intersection.hitObjectSpecular.r) * glm::pow(1.0f - glm::dot(intersection.hitObjectNormal, wi), 5.0f);
@@ -1294,7 +1299,24 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			}
 			else if (chosenBRDF == "ggx")
 			{
-				throughput *= brdf / pdf_ggx;
+				float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+
+				float pdfDiffuse = cosTheta / (float)M_PI;
+
+				glm::vec3 r = glm::reflect(-wo, intersection.hitObjectNormal);
+				float rDotWi = std::max(glm::dot(r, wi), 0.0f);
+				float pdfSpec = ((intersection.hitObjectShininess + 1.0f) / (2.0f * (float)M_PI)) *
+					std::pow(rDotWi, intersection.hitObjectShininess);
+
+				float kdAvg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
+				float ksAvg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
+				float sum = kdAvg + ksAvg;
+				float pSpec = (sum > 0.0f) ? (ksAvg / sum) : 0.0f;
+				float pDiffuse = 1.0f - pSpec;
+
+				pdf = pDiffuse * pdfDiffuse + pSpec * pdfSpec + pdf_ggx;
+
+				throughput *= brdf / pdf;
 			}
 		}
 
@@ -1402,6 +1424,9 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 				}
 
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
+				col.r = accumCol.r / (1.0f + accumCol.r);
+				col.g = accumCol.g / (1.0f + accumCol.g);
+				col.b = accumCol.b / (1.0f + accumCol.b);
 				col.r = glm::pow(accumCol.r, 1.0f / gamma);
 				col.g = glm::pow(accumCol.g, 1.0f / gamma);
 				col.b = glm::pow(accumCol.b, 1.0f / gamma);

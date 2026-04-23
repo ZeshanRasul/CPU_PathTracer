@@ -153,6 +153,9 @@
     <Image Include="cornellBRDF.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="ggx.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Library Include="FreeImage.lib" />
