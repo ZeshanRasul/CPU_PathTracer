@@ -999,8 +999,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	if (depth > maxDepth)
 	{
-		return accumCol;
-		//	return glm::vec3(0.0f);
+		//return accumCol;
+		return glm::vec3(0.0f);
 	}
 
 	glm::vec3 directLight = glm::vec3(0.0f);
@@ -1040,17 +1040,17 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				Intersection lightSample = FindIntersection(grid, scene, sampleRay, true, useNEE);
 
 				const float shadowEpsilon = 1e-2f;
-				if (!lightSample.didHit && useNEE != "mis")
+				if (!lightSample.didHit)
 				{
 					continue;
 				}
 
-				if (!lightSample.isLight && useNEE != "mis")
+				if (!lightSample.isLight)
 				{
 					continue;
 				}
 
-				if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon && useNEE != "mis")
+				if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon)
 				{
 					continue;
 				}
@@ -1111,7 +1111,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				pdfNEE /= samples;
 				pdfNEE /= lights.size();
 
-				float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
+				float weight = glm::max(pdfNEE * pdfNEE, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
 
 				perLight += brdfNEE * G * weight;
 			}
@@ -1548,8 +1548,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	//{
 	//	weightBRDF = 1.0f;
 	//}
-	throughput *= brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weight;
+//	accumCol += brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weight;
 
+	float weightBRDF = (pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
+	accumCol += throughput * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
 	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, secondaryIntersection.brdf);
 
 }
