@@ -1013,10 +1013,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	if (useNEE == "on" || useNEE == "mis")
 	{
-	/*	if (depth == 0)
-		{
-			accumCol += throughput * intersection.hitObjectEmission;
-		}*/
+		/*	if (depth == 0)
+			{
+				accumCol += throughput * intersection.hitObjectEmission;
+			}*/
 
 		std::vector<QuadLight*> lights = scene->GetQuadLights();
 		for (QuadLight* light : lights)
@@ -1059,7 +1059,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				glm::vec3 wi = dir;
 				glm::vec3 reflectVector = glm::reflect(-wi, intersection.hitObjectNormal);
 				float reflectVecDotWo = std::max(glm::dot(reflectVector, wo), 0.0f);
-				
+
 				glm::vec3 brdf;
 
 				if (intersection.brdf == "phong")
@@ -1090,7 +1090,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					glm::vec3 F0 = intersection.hitObjectSpecular;
 					glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * glm::pow(1.0f - VdotH, 5.0f);
 					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
-					
+
 					float ks_avg = (intersection.hitObjectSpecular.r + intersection.hitObjectSpecular.g + intersection.hitObjectSpecular.b) / 3.0f;
 					float kd_avg = (intersection.hitObjectDiffuse.r + intersection.hitObjectDiffuse.g + intersection.hitObjectDiffuse.b) / 3.0f;
 
@@ -1101,15 +1101,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					brdfNEE = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
 				}
 				G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
-				
-			
+
+
 
 			}
 			if (useNEE == "mis")
 			{
 				pdfNEE = (1.0f / lightArea);
 				pdfNEE /= samples;
-			//	pdfNEE /= lights.size();
+				//	pdfNEE /= lights.size();
 
 				float weight = (pdfNEE * pdfNEE) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
 
@@ -1460,7 +1460,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				{
 					fGGX = glm::vec3(0.0f);
 				}
-				
+
 
 				brdf =
 					(intersection.hitObjectDiffuse / (float)M_PI) + fGGX;
@@ -1551,9 +1551,12 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	//	weightBRDF = 1.0f;
 	//}
 //	accumCol += brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weight;
+	if (useNEE == "mis" && secondaryIntersection.isLight)
+	{
+		float weightBRDF = (pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
+		accumCol += throughput * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
 
-	float weightBRDF = (pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
-	return accumCol += throughput * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
+	}
 	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, secondaryIntersection.brdf);
 
 }
@@ -1641,7 +1644,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 						//accumCol += intersection.hitObjectEmission;
 					}
 				}
-			//	accumCol /= 2;
+				//	accumCol /= 2;
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
 				col = accumCol;
 			}
@@ -1969,7 +1972,6 @@ int main() {
 		if (cmd == "brdf")
 		{
 			std::cout << line << std::endl;
-			brdf = "";
 			iss >> brdf;
 		}
 
