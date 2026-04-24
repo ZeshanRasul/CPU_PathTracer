@@ -1007,13 +1007,14 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 	float pdfNEE = 1.0f;
 	float pdfBRDF = 1.0f;
+	float pdfL2 = 1.0f;
 
 	if (useNEE == "on" || useNEE == "mis")
 	{
-		if (depth == 0)
+	/*	if (depth == 0)
 		{
 			accumCol += throughput * intersection.hitObjectEmission;
-		}
+		}*/
 
 		std::vector<QuadLight*> lights = scene->GetQuadLights();
 		for (QuadLight* light : lights)
@@ -1062,6 +1063,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				if (intersection.brdf == "phong")
 				{
 					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
+					pdfBRDF = ((intersection.hitObjectShininess + 1) / (float)(2.0f * M_PI)) * glm::pow(reflectVecDotWo, intersection.hitObjectShininess);
 				}
 				else if (intersection.brdf == "ggx")
 				{
@@ -1101,13 +1103,14 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					if (lightSample.didHit == true)
 					{
 						float pdfLight = distanceToLight * distanceToLight / (lightArea * std::max(glm::dot(lightNormal, dir), 0.0f));
-						pdfNEE += pdfLight * pdfLight;
+						pdfNEE += (pdfLight * pdfLight);
+						pdfL2 = (pdfLight * pdfLight);
 					}
 				}
 				perLight += brdf * G;
 			}
 
-			float weight = pdfBRDF * pdfBRDF / pdfNEE;
+			float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / pdfL2;
 			pdfNEE /= samples;
 			pdfNEE /= lights.size();
 
