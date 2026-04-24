@@ -1101,7 +1101,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
 
 					EvaluateGGX(intersection.hitObjectRoughness, intersection.hitObjectNormal, halfVector, D, pdfBRDF, t, wi);
-
+					pdfBRDF = (1 - t) * (NdotL / (float)M_PI) +
+						t * D * (NdotH / (4.0f * VdotH + 1e-6f));
 					brdfNEE = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
 				}
 				G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
@@ -1113,7 +1114,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float cosLight = std::max(glm::dot(lightNormal, dir), 0.0f);
 					float dist2 = distanceToLight * distanceToLight;
 
-					pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);					//	pdfNEE /= lights.size();
+
+					if (lightSample.didHit)
+					{
+						pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);					//	pdfNEE /= lights.size();
+					}
+					else
+					{
+						pdfNEE = 0.0f;
+					}
 
 					float weight = (pdfNEE * pdfNEE) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
 
@@ -1710,7 +1719,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 						//accumCol += intersection.hitObjectEmission;
 					}
 				}
-				//	accumCol /= 2;
+				accumCol /= 2;
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
 				col = accumCol;
 			}
