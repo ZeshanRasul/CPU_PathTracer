@@ -18,6 +18,7 @@ public:
 		float tHit,
 		bool isAreaLight,
 		std::string brdf,
+		int lightIndex = -1,
 		float hitObjectRoughness = 0.0f,
 		bool hitHasTexture = false,
 		texture* hitObjectTexture = nullptr,
@@ -40,7 +41,8 @@ public:
 		hitObjectRoughness(hitObjectRoughness),
 		hitHasTexture(hitHasTexture),
 		hitObjectTexture(hitObjectTexture),
-		isShadowRay(isShadowRay)
+		isShadowRay(isShadowRay),
+		lightIndex(lightIndex)
 	{
 	}
 
@@ -76,4 +78,5 @@ public:
 	bool isShadowRay = false;
 	std::string brdf = "phong";
 	float hitObjectRoughness = 0.0f;
+	int lightIndex = -1;
 };

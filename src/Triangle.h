@@ -5,7 +5,7 @@
 class Triangle
 {
 public:
-	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, std::string brdf, float roughness, bool isAreaLight = false, texture* matTex = NULL)
+	Triangle(glm::vec3 vertex0, glm::vec3 vertex1, glm::vec3 vertex2, glm::vec3 diffuse, glm::vec3 specular, glm::vec3 emission, float shininess, glm::vec3 ambient, std::string brdf, float roughness, int lightIndex, bool isAreaLight = false, texture* matTex = NULL)
 		:
 		vertex0(vertex0),
 		vertex1(vertex1),
@@ -18,7 +18,8 @@ public:
 		brdf(brdf),
 		roughness(roughness),
 		matTexture(matTex),
-		isLight(isAreaLight)
+		isLight(isAreaLight),
+		lightIndex(lightIndex)
 
 	{
 		normalA = glm::normalize(glm::cross((vertex2 - vertex0), (vertex1 - vertex0)));
@@ -55,4 +56,5 @@ public:
 	bool isLight = false;
 	std::string brdf = "phong";
 	float roughness;
+	int lightIndex = -1;
 };

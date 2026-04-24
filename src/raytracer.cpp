@@ -648,6 +648,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 				intersection.t,
 				false,
 				hitSphere->brdf,
+				-1,
 				hitSphere->roughness,
 				hitSphere->matTexture != NULL,
 				hitSphere->matTexture
@@ -700,6 +701,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 					tTriangle,
 					hitTri->isLight,
 					hitTri->brdf,
+					hitTri->lightIndex,
 					hitTri->roughness,
 					false,
 					NULL
@@ -720,6 +722,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 				tTriangle,
 				hitTri->isLight,
 				hitTri->brdf,
+				hitTri->lightIndex,
 				hitTri->roughness,
 				false,
 				NULL
@@ -743,6 +746,7 @@ Intersection FindIntersection(UniformGrid* grid, Scene* scene, Ray& ray, bool is
 		minDist,
 		false,
 		"phong",
+		-1,
 		0.0f,
 		hitHasTexture,
 		NULL
@@ -1109,7 +1113,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float cosLight = std::max(glm::dot(lightNormal, dir), 0.0f);
 					float dist2 = distanceToLight * distanceToLight;
 
-					float pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);					//	pdfNEE /= lights.size();
+					pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);					//	pdfNEE /= lights.size();
 
 					float weight = (pdfNEE * pdfNEE) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
 
@@ -1123,7 +1127,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			}
 
 
-			pdfNEE = 1.0f / lightArea;
+		//	pdfNEE = 1.0f / lightArea;
 
 			directLight += perLight * light->intensity * (lightArea / (float)samples);
 		}
@@ -1237,7 +1241,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				pdf = pdfSpec;
 
-				newThroughput = throughput * (brdf * glm::dot(intersection.hitObjectNormal, wi)) / (pdf + 1e-6f);
+				float cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+
+				newThroughput = throughput * (brdf * cosTheta) / (pdf + 1e-6f);
 				weight = pSpec / pdf;
 
 
@@ -1274,7 +1280,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					std::pow(std::max(glm::dot(R, wi), 0.0f), intersection.hitObjectShininess);
 
 				pdf = (cosTheta / (float)M_PI) + (pdfSpec * (1.0f - cosTheta));
-				newThroughput = throughput * (brdf * glm::dot(intersection.hitObjectNormal, wi)) / (pdf + 1e-6f);
+				newThroughput = throughput * (brdf * cosTheta) / (pdf + 1e-6f);
 
 			}
 
@@ -1401,8 +1407,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					(intersection.hitObjectDiffuse / (float)M_PI);
 				weight = (pDiffuse * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI)) / pdf_ggx;
 
+				cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+
 				pdf = pdf_ggx;
-				newThroughput = throughput * (brdf * glm::dot(intersection.hitObjectNormal, wi)) / (pdf + 1e-6f);
+				newThroughput = throughput * (brdf * cosTheta) / (pdf + 1e-6f);
 
 
 			}
@@ -1501,8 +1509,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 				pdf = (1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(halfVector, wi));
+				cosTheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
 
-				newThroughput = throughput * (brdf * glm::dot(intersection.hitObjectNormal, wi)) / (pdf + 1e-6f);
+				newThroughput = throughput * (brdf * cosTheta) / (pdf + 1e-6f);
 
 			}
 
@@ -1590,8 +1599,26 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 //	accumCol += brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weight;
 	if (useNEE == "mis" && secondaryIntersection.isLight)
 	{
-		float weightBRDF = (pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
-		return accumCol + newThroughput * secondaryIntersection.hitObjectEmission * weightBRDF;
+		QuadLight* hitLight = scene->GetQuadLights()[secondaryIntersection.lightIndex];
+
+		float lightArea = glm::length(glm::cross(hitLight->ab, hitLight->ac));
+
+		glm::vec3 toLight = secondaryIntersection.intersectionPoint - intersection.intersectionPoint;
+		float dist2 = glm::dot(toLight, toLight);
+		glm::vec3 dir = glm::normalize(toLight);
+
+		glm::vec3 lightNormal = glm::normalize(glm::cross(-hitLight->ab, -hitLight->ac));
+
+		float cosLight = std::max(glm::dot(lightNormal, dir), 0.0f);
+
+		float pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);
+
+		float weightBRDF =
+			(pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
+
+		return accumCol + newThroughput *
+			secondaryIntersection.hitObjectEmission *
+			weightBRDF;
 
 	}
 
@@ -1955,9 +1982,10 @@ int main() {
 			glm::vec3 v1 = a + ab;
 			glm::vec3 v2 = a + ab + ac;
 			glm::vec3 v3 = a + ac;
+			int lightIndex = scene->GetQuadLights().size();
 			QuadLight* quadLight = new QuadLight(a, ab, ac, intensity);
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, true, NULL));
-			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v1, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, lightIndex, true, NULL));
+			scene->AddTriangle(new Triangle(transformStack.back() * glm::vec4(v0, 1.0f), transformStack.back() * glm::vec4(v2, 1.0f), transformStack.back() * glm::vec4(v3, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), intensity, shininess, glm::vec3(0.0f), brdf, roughness, lightIndex, true, NULL));
 			scene->AddQuadLight(quadLight);
 		}
 
