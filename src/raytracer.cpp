@@ -1117,7 +1117,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			}
 
 
-			directLight += perLight * light->intensity * (lightArea / (float)samples);
+			directLight += perLight * light->intensity * (lightArea / (2.0f * (float)samples));
 		}
 	}
 	//accumCol += directLight;
@@ -1525,6 +1525,10 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			throughput /= (1.0f - q);
 		}
 	}
+
+
+	float weightBRDF = pdf_ggx * pdf_ggx / (pdf_ggx * pdf_ggx + pdfNEE * pdfNEE + 1e-6f);
+	throughput *= brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
 
 	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, secondaryIntersection.brdf);
 
