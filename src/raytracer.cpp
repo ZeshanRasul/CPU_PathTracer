@@ -1001,9 +1001,11 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-	if (depth > maxDepth)
+	if (depth >= maxDepth)
 	{
-		//return accumCol;
+		if (intersection.isLight)
+			return intersection.hitObjectEmission;
+
 		return glm::vec3(0.0f);
 	}
 
@@ -1109,41 +1111,31 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
+				float cosSurface = std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f);
+				float cosLight = std::max(glm::dot(lightNormal, dir), 0.0f);
+				float dist2 = distanceToLight * distanceToLight;
+
+				float G = cosSurface * cosLight / dist2;
+
+				float pdfNEE_solidAngle = dist2 / (lightArea * cosLight + 1e-6f);
+
+				float weight = 1.0f;
+
 				if (useNEE == "mis")
 				{
-					float cosLight = std::max(glm::dot(lightNormal, dir), 0.0f);
-					float dist2 = distanceToLight * distanceToLight;
-
-
-					if (lightSample.didHit)
-					{
-						pdfNEE = dist2 / (lightArea * cosLight + 1e-6f);					
-						//	pdfNEE /= lights.size();
-					}
-					else
-					{
-						pdfNEE = 0.0f;
-					}
-
-					float cosSurface = std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f);
-
-					float weight =
-						(pdfNEE * pdfNEE) /
-						(pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
-
-					perLight += brdfNEE * cosSurface * weight / (pdfNEE + 1e-6f);
+					weight =
+						(pdfNEE_solidAngle * pdfNEE_solidAngle) /
+						(pdfNEE_solidAngle * pdfNEE_solidAngle + pdfBRDF * pdfBRDF + 1e-6f);
 				}
-				else
-				{
-					perLight += brdfNEE * G;
-				}
+
+				perLight += brdfNEE * G * weight;
 
 			}
 
 
 		//	pdfNEE = 1.0f / lightArea;
 
-			directLight += perLight * light->intensity / (float)samples;
+			directLight += perLight * light->intensity * lightArea / (float)samples;
 		}
 	}
 	//accumCol += directLight;
