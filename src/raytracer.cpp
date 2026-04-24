@@ -997,7 +997,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-	if (depth >= maxDepth)
+	if (depth > maxDepth)
 	{
 		return accumCol;
 		//	return glm::vec3(0.0f);
@@ -1008,6 +1008,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	float pdfNEE = 1.0f;
 	float pdfBRDF = 1.0f;
 	float pdfL2 = 1.0f;
+	glm::vec3 brdfNEE = glm::vec3(0.0f);
+	float G = 1.0f;
 
 	if (useNEE == "on" || useNEE == "mis")
 	{
@@ -1062,7 +1064,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				if (intersection.brdf == "phong")
 				{
-					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
+					brdfNEE = (intersection.hitObjectDiffuse / (float)M_PI) + (intersection.hitObjectSpecular * ((intersection.hitObjectShininess + 2) / (float)(M_PI * 2.0f))) * (glm::pow(reflectVecDotWo, intersection.hitObjectShininess));
 					pdfBRDF = ((intersection.hitObjectShininess + 1) / (float)(2.0f * M_PI)) * glm::pow(reflectVecDotWo, intersection.hitObjectShininess);
 				}
 				else if (intersection.brdf == "ggx")
@@ -1096,24 +1098,23 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 					EvaluateGGX(intersection.hitObjectRoughness, intersection.hitObjectNormal, halfVector, D, pdfBRDF, t, wi);
 
-					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
+					brdfNEE = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
 				}
-				float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
+				G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
 				
-				if (useNEE == "mis")
-				{
-					pdfNEE = (1.0f / lightArea);
-
-					float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
-
-					perLight += brdf * G * weight;
-				}
+			
 
 			}
+			if (useNEE == "mis")
+			{
+				pdfNEE = (1.0f / lightArea);
+				pdfNEE /= samples;
+				pdfNEE /= lights.size();
 
-			float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / pdfL2;
-			pdfNEE /= samples;
-			pdfNEE /= lights.size();
+				float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
+
+				perLight += brdfNEE * G * weight;
+			}
 
 
 			directLight += perLight * light->intensity * (lightArea / (float)samples);
@@ -1612,7 +1613,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 						//accumCol += intersection.hitObjectEmission;
 					}
 				}
-
+				accumCol /= 2;
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
 				col = accumCol;
 			}
