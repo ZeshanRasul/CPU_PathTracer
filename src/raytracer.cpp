@@ -1458,7 +1458,9 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				float t = glm::max(0.25f, ksAvg / (ksAvg + kdAvg));
 				EvaluateGGX(intersection.hitObjectRoughness, intersection.hitObjectNormal, halfVector, D, pdf, t, wi);
-				throughput *= brdf / pdf;
+				float costheta = std::max(glm::dot(intersection.hitObjectNormal, wi), 0.0f);
+
+				throughput *= brdf * costheta / pdf;
 			}
 		}
 
