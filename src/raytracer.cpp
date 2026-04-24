@@ -853,7 +853,7 @@ glm::vec3 AnalyticFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Cam
 	return glm::vec3(0.0, 0.0, 0.0);
 }
 
-glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool isIndirect)
+glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, std::string useNEE)
 {
 
 	std::vector<QuadLight*> lights = scene->GetQuadLights();
@@ -862,7 +862,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 	{
 		if (intersection.didHit)
 		{
-			if (!isIndirect)
+			if (useNEE == "on")
 				return intersection.hitObjectEmission;
 
 
@@ -959,7 +959,7 @@ glm::vec3 MonteCarloFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, bool useNEE, bool useRR, glm::vec3 throughput, std::string importanceSampling, std::string chosenBRDF)
+glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, Camera* camera, int depth, int samples, bool stratify, const Intersection& intersection, std::string useNEE, bool useRR, glm::vec3 throughput, std::string importanceSampling, std::string chosenBRDF)
 {
 	glm::vec3 accumCol(0.0f);
 	if (!intersection.didHit)
@@ -975,15 +975,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 
 
-	//if (depth >= maxDepth)
-	//{
-	//	return accumCol;
-	//	//	return glm::vec3(0.0f);
-	//}
+	if (depth >= maxDepth)
+	{
+		return accumCol;
+		//	return glm::vec3(0.0f);
+	}
 
 
 	glm::vec3 directLight = glm::vec3(0.0f);
-	if (useNEE)
+	if (useNEE == "on")
 	{
 		if (depth == 0)
 		{
@@ -1489,7 +1489,7 @@ struct Vertex
 
 std::vector<Vertex> verts;
 
-int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, bool useNEE, bool useRR, std::string importanceSampling, std::string chosenBRDF, float gamma)
+int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& cam, std::string integrator, int width, int height, UniformGrid& grid, int lightSamples, bool lightStratify, BYTE* pixels, int spp, std::string useNEE, bool useRR, std::string importanceSampling, std::string chosenBRDF, float gamma)
 {
 	{
 		std::ostringstream oss;
@@ -1615,7 +1615,7 @@ int main() {
 	std::string integrator;
 	glm::vec3 a, ab, ac, intensity;
 	int spp = 1;
-	bool useNEE = false;
+	std::string useNEE = "on";
 	bool useRR = false;
 	std::string importanceSampling;
 	std::string brdf = "phong";
@@ -1625,7 +1625,7 @@ int main() {
 	Scene* scene = new Scene();
 	UniformGrid* grid = new UniformGrid();
 
-	std::ifstream file("C:/dev/CSE168x/Release/ggx.test");
+	std::ifstream file("C:/dev/CSE168x/Release/mis.test");
 	std::string line;
 
 	while (std::getline(file, line))
@@ -1871,9 +1871,7 @@ int main() {
 		if (cmd == "nexteventestimation")
 		{
 			std::cout << line << std::endl;
-			std::string shouldUseNEE;
-			iss >> shouldUseNEE;
-			useNEE = shouldUseNEE == "on" ? true : false;
+			iss >> useNEE;
 		}
 
 		if (cmd == "russianroulette")
