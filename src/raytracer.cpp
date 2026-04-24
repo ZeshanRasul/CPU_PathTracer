@@ -1109,15 +1109,15 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			{
 				pdfNEE = (1.0f / lightArea);
 				pdfNEE /= samples;
-				pdfNEE /= lights.size();
+			//	pdfNEE /= lights.size();
 
-				float weight = glm::max(pdfNEE * pdfNEE, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
+				float weight = (pdfNEE * pdfNEE) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
 
 				perLight += brdfNEE * G * weight;
 			}
 
 
-			directLight += perLight * light->intensity * (lightArea / (2.0f * (float)samples));
+			directLight += perLight * light->intensity * (lightArea / (float)samples);
 		}
 	}
 	//accumCol += directLight;
@@ -1378,6 +1378,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					(intersection.hitObjectDiffuse / (float)M_PI);
 				weight = (pDiffuse * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI)) / pdf_ggx;
 
+				pdf = pdf_ggx;
+
 
 			}
 			else
@@ -1463,8 +1465,8 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 				brdf =
 					(intersection.hitObjectDiffuse / (float)M_PI) + fGGX;
 
-				weight = (pDiffuse * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI)) / ((1 - t) * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI) + t * D * (glm::dot(intersection.hitObjectNormal, halfVector)) / (4.0f * glm::dot(halfVector, wi)));
 
+				pdf = pDiffuse * (glm::dot(intersection.hitObjectNormal, wi) / (float)M_PI);
 			}
 
 		}
@@ -1551,7 +1553,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 //	accumCol += brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weight;
 
 	float weightBRDF = (pdf * pdf) / (pdf * pdf + pdfNEE * pdfNEE + 1e-6f);
-	accumCol += throughput * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
+	return accumCol += throughput * brdf * std::max(glm::dot(intersection.hitObjectNormal, w_i), 0.0f) * weightBRDF;
 	return accumCol += PathTracerFindColor(grid, secondaryRay, scene, camera, depth + 1, samples, stratify, secondaryIntersection, useNEE, useRR, throughput, importanceSampling, secondaryIntersection.brdf);
 
 }
@@ -1639,7 +1641,7 @@ int RenderPixels(int heightChunkStart, int heightChunk, Scene& scene, Camera& ca
 						//accumCol += intersection.hitObjectEmission;
 					}
 				}
-				accumCol /= 2;
+			//	accumCol /= 2;
 				accumCol /= static_cast<float>(spp); // Average the samples for anti-aliasing
 				col = accumCol;
 			}
