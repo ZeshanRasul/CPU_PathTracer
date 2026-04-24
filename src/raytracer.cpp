@@ -1035,7 +1035,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 
 				glm::vec3 origin = intersection.intersectionPoint + intersection.hitObjectNormal * 0.001f;
 				Ray sampleRay(origin, dir);
-				Intersection lightSample = FindIntersection(grid, scene, sampleRay, false, useNEE);
+				Intersection lightSample = FindIntersection(grid, scene, sampleRay, true, useNEE);
 
 				const float shadowEpsilon = 1e-2f;
 				if (!lightSample.didHit && useNEE != "mis")
@@ -1048,7 +1048,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					continue;
 				}
 
-				if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon)
+				if (std::abs(lightSample.t - distanceToLight) > shadowEpsilon && useNEE != "mis")
 				{
 					continue;
 				}
@@ -1095,19 +1095,20 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 					float t = ks_avg / (ks_avg + kd_avg + 1e-6f); // Avoid division by zero
 
 					EvaluateGGX(intersection.hitObjectRoughness, intersection.hitObjectNormal, halfVector, D, pdfBRDF, t, wi);
+
+					brdf = (intersection.hitObjectDiffuse / (float)M_PI) + (D * G * F) / (4.0f * NdotL * NdotV + 1e-6f);
 				}
 				float G = (1.0f / glm::pow(glm::length(sampleLightPoint - intersection.intersectionPoint), 2.0f)) * std::max(glm::dot(intersection.hitObjectNormal, dir), 0.0f) * std::max(glm::dot(lightNormal, dir), 0.0f);
 				
 				if (useNEE == "mis")
 				{
-					if (lightSample.didHit == true)
-					{
-						float pdfLight = distanceToLight * distanceToLight / (lightArea * std::max(glm::dot(lightNormal, dir), 0.0f));
-						pdfNEE += (pdfLight * pdfLight);
-						pdfL2 = (pdfLight * pdfLight);
-					}
+					pdfNEE = (1.0f / lightArea);
+
+					float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / (pdfNEE * pdfNEE + pdfBRDF * pdfBRDF + 1e-6f);
+
+					perLight += brdf * G * weight;
 				}
-				perLight += brdf * G;
+
 			}
 
 			float weight = glm::max(pdfBRDF * pdfBRDF, 1e-6f) / pdfL2;
@@ -1115,8 +1116,7 @@ glm::vec3 PathTracerFindColor(UniformGrid* grid, const Ray& ray, Scene* scene, C
 			pdfNEE /= lights.size();
 
 
-			directLight += weight * perLight * light->intensity * (lightArea / (float)samples);
-
+			directLight += perLight * light->intensity * (lightArea / (float)samples);
 		}
 	}
 	//accumCol += directLight;
